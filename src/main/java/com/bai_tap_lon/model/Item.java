@@ -1,8 +1,7 @@
 package com.bai_tap_lon.model;
 
 public abstract class Item {
-    protected String id; //id là 1 thực thể chính của hệ thống nên cho thêm id vô dù trong bản draw k có là hợp lí.
-    protected String name;
+    protected String id;
     protected String description;
     protected double initPrice;
     protected String category;
