@@ -1,10 +1,12 @@
-package com.bai_tap_lon.model;
+package com.auction.onlineauctionsystem.model;
 public class Seller extends User {
-    public Seller(String id, String username, String password, String fullName, String email) {
-        super(id, username, password, fullName, email);
+    private double reputation; // Điểm danh tiếng (theo des.docx)
+    private int totalItemsSold;
+    public Seller(long id, String username, String password, String email) {
+        super(id, username, password, email);
+        this.reputation = 0.0; // Mặc định mới tạo là 0
+        this.totalItemsSold = 0;
     }
     @Override
-    public String getRole() {
-        return "SELLER";
-    }
+    public String getRoleName() { return "Seller"; }
 }

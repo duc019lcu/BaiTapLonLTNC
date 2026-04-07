@@ -1,18 +1,11 @@
-package com.bai_tap_lon.model;
+package com.auction.onlineauctionsystem.model;
 public class Admin extends User {
-    public Admin(String id, String username, String password, String fullName, String email) {
-        super(id, username, password, fullName, email);
+    private int accessLevel; // Cấp độ quyền hành (theo des.docx)
+    public Admin(long id, String username, String password, String email, int accessLevel) {
+        super(id, username, password, email);
+        this.accessLevel = accessLevel;
     }
+    public int getAccessLevel() { return accessLevel; }
     @Override
-    public String getRole() {
-        return "ADMIN";
-    }
-    @Override
-    public void printInfo() {
-        System.out.println("=== QUẢN TRỊ VIÊN ===");
-        super.printInfo();
-    }
-    // Các phương thức đặc quyền của Admin có thể thêm sau này:
-    // public void lockUser(User user) { ... }
-    // public void approveProduct(Item item) { ... }
+    public String getRoleName() { return "Admin"; }
 }

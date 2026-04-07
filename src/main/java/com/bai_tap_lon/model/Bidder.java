@@ -1,17 +1,11 @@
-package com.bai_tap_lon.model;
+package com.auction.onlineauctionsystem.model;
 public class Bidder extends User {
-    private double balance;
-    public Bidder(String id, String username, String password, String fullName, String email, double balance) {
-        super(id, username, password, fullName, email);
-        this.balance = balance;
+    private String shippingAddress; // Địa điểm nhận hàng (theo des.docx)
+    public Bidder(long id, String username, String password, String email, String shippingAddress) {
+        super(id, username, password, email);
+        this.shippingAddress = shippingAddress;
     }
+    public String getShippingAddress() { return shippingAddress; }
     @Override
-    public String getRole() {
-        return "BIDDER";
-    }
-    @Override
-    public void printInfo() {
-        super.printInfo();
-        System.out.println("Số dư: " + balance);
-    }
+    public String getRoleName() { return "Bidder"; }
 }
