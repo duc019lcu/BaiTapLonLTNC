@@ -1,6 +1,6 @@
 package com.auction.onlineauctionsystem.model;
 public class Admin extends User {
-    private int accessLevel; // Cấp độ quyền hành (theo des.docx)
+    private int accessLevel; 
     public Admin(long id, String username, String password, String email, int accessLevel) {
         super(id, username, password, email);
         this.accessLevel = accessLevel;
