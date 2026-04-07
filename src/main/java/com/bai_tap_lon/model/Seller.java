@@ -1,6 +1,6 @@
 package com.auction.onlineauctionsystem.model;
 public class Seller extends User {
-    private double reputation; // Điểm danh tiếng (theo des.docx)
+    private double reputation; 
     private int totalItemsSold;
     public Seller(long id, String username, String password, String email) {
         super(id, username, password, email);
