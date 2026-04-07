@@ -1,6 +1,6 @@
 package com.auction.onlineauctionsystem.model;
 public class Bidder extends User {
-    private String shippingAddress; // Địa điểm nhận hàng (theo des.docx)
+    private String shippingAddress; 
     public Bidder(long id, String username, String password, String email, String shippingAddress) {
         super(id, username, password, email);
         this.shippingAddress = shippingAddress;
