@@ -21,4 +21,3 @@ public abstract class User implements Serializable {
     public void printInfo() {
         System.out.println("User: " + fullName + " [" + getRole() + "]");
     }
-}
