@@ -15,9 +15,11 @@ public abstract class User implements Serializable {
     }
     public String getId() { return id; }
     public String getUsername() { return username; }
+    public String getPassword() { return password; }
     public String getFullName() { return fullName; }
     public String getEmail() { return email; }
     public abstract String getRole();
     public void printInfo() {
         System.out.println("User: " + fullName + " [" + getRole() + "]");
     }
+}

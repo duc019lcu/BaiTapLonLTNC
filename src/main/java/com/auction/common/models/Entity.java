@@ -1,4 +1,4 @@
-package com.auction.onlineauctionsystem.model;
+package com.auction.common.models;
 import java.io.Serializable;
 public abstract class Entity implements Serializable {
     private static final long serialVersionUID = 1L; // Cần có để lưu file không bị lỗi
