@@ -1,6 +1,8 @@
 package com.auction.domain;
 
 import java.time.LocalDateTime;
+import java.time.Duration;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -14,16 +16,14 @@ public class AuctionSession {
     private String startTime;
     private String endTime;
     private AuctionStatus status;
-    private final List<BidTransaction> bidHistory;
 
     public AuctionSession(String auctionID, String itemID, String sellerID, double startPrice) {
         this.auctionID = auctionID;
         this.itemID = itemID;
         this.sellerID = sellerID;
-        this.currentHighestBid = startPrice;
+        this.currentHighestBid =startPrice;
         this.winnerID = "None";
         this.status = AuctionStatus.OPEN;
-        this.bidHistory = new ArrayList<>();
     }
 
     public String getAuctionID() {
@@ -103,13 +103,31 @@ public class AuctionSession {
 
         this.currentHighestBid = bidAmount;
         this.winnerID = bidderID;
-        this.bidHistory.add(new BidTransaction(this.auctionID, bidderID, bidAmount, LocalDateTime.now()));
+
+        checkAndExtendTime();
 
         System.out.println("Cập nhật giá thành công!");
         return true;
     }
 
-    public synchronized List<BidTransaction> getBidHistory() {
-        return Collections.unmodifiableList(new ArrayList<>(bidHistory));
+    private void checkAndExtendTime(){
+        if (this.endTime == null || this.status == AuctionStatus.FINISHED) return;
+
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime end = LocalDateTime.parse(this.endTime);
+            Duration duration = Duration.between(now, end);
+            long secondsLeft = duration.getSeconds();
+
+            if (secondsLeft > 0 && secondsLeft <= 30) {
+                LocalDateTime newEndTime = end.plusSeconds(60);
+                this.endTime = newEndTime.toString();
+                this.status = AuctionStatus.EXTENDED;
+                System.out.println("[HỆ THỐNG]: Tự động gia hạn thêm 60s");
+            }
+        }   catch (Exception e){
+            System.out.println("Lỗi xử lý thời gian: " + e.getMessage());
+        }
     }
 }
+
