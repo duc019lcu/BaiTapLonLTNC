@@ -1,30 +1,30 @@
 package com.auction.domain;
 
-import java.time.LocalDateTime;
-import java.time.Duration;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.time.LocalDateTime; //ngày giờ hiện tại
+import java.time.Duration; // tính khoảng cách thời gian giữa hai thời điểm
+import java.time.format.DateTimeFormatter; // định dạng kiểu chuỗi thành ngày - giờ và ngược lại
+import java.util.ArrayList; // mảng động, dùng để lưu trữc các tập hợp dữ liệu
+import java.util.Collections;  // sort, reverse
+import java.util.List; // interface chung
 
 public class AuctionSession {
-    private String auctionID;
-    private String itemID;
-    private String sellerID;
-    private double currentHighestBid;
-    private String winnerID;
-    private String startTime;
-    private String endTime;
-    private AuctionStatus status;
+    private String auctionID; //ID phiên đấu giá
+    private String itemID; // ID đồ bán
+    private String sellerID; // ID người bán
+    private double currentHighestBid; // giá đang đặt cao nhất
+    private String winnerID; // ID người thắng
+    private String startTime; // giờ bắt đàu
+    private String endTime; // giờ kết thúc 
+    private AuctionStatus status; // trạng thái
 
     public AuctionSession(String auctionID, String itemID, String sellerID, double startPrice) {
-        this.auctionID = auctionID;
-        this.itemID = itemID;
-        this.sellerID = sellerID;
-        this.currentHighestBid =startPrice;
-        this.winnerID = "None";
-        this.status = AuctionStatus.OPEN;
-    }
+    this.auctionID = auctionID;
+    this.itemID = itemID;
+    this.sellerID = sellerID;
+    this.currentHighestBid =startPrice;
+    this.winnerID = "None"; // chưa có người thắng
+    this.status = AuctionStatus.OPEN; // khởi tạo trạng thái ban đầu là OPEN
+}
 
     public String getAuctionID() {
         return auctionID;
@@ -90,6 +90,8 @@ public class AuctionSession {
         this.status = status;
     }
 
+    // synchronized giúp đảm bảo tại một thời điểm chỉ có duy nhất 1 người được thực hiện đặt giá, 
+    // tránh việc hai người cùng đặt một lúc dẫn đến loạn số liệu
     public synchronized boolean processBid(String bidderID, double bidAmount) {
         if (this.status != AuctionStatus.RUNNING && this.status != AuctionStatus.EXTENDED) {
             System.out.println("Phiên đấu giá đang không trong trạng thái nhận giá!");
@@ -105,11 +107,16 @@ public class AuctionSession {
         this.winnerID = bidderID;
 
         checkAndExtendTime();
-
+        
         System.out.println("Cập nhật giá thành công!");
         return true;
     }
-
+    // nếu trạng thái khác running hoặc extended thì in ra thông báo
+    // còn không thực hiện tiếp khối bên dưới, nếu giá đặt nhỏ hơn giá cao nhất đã đặt thì in ra thông báo
+    // không có gì thì xuống hai dòng dưới, gán giá cao nhất cho giá vừa đặt và winnerID thành bidderID
+    // gọi hàm mở rộng thời gian
+    // in ra thông báo nếu đặt giá thành công
+    
     private void checkAndExtendTime(){
         if (this.endTime == null || this.status == AuctionStatus.FINISHED) return;
 
@@ -125,9 +132,14 @@ public class AuctionSession {
                 this.status = AuctionStatus.EXTENDED;
                 System.out.println("[HỆ THỐNG]: Tự động gia hạn thêm 60s");
             }
-        }   catch (Exception e){
+    }   catch (Exception e){
             System.out.println("Lỗi xử lý thời gian: " + e.getMessage());
-        }
     }
+    // Nếu chưa cài đặt thời gian kết thúc hoặc phiên đã xong thì không cần đến hàm này
+    // Lấy thời gian hiện tại và biến chuỗi endtime về định dạng ngày giờ
+    // Tính toán khoảng cách thời gian từ lúc bắt đầu đến kết thúc phiên bằng duration(giúp tính chuẩn hơn, đỡ phải đổi đơn vị)
+    // Nếu thời gian lớn hơn 0 nhỏ hơn hoặc bằng 30 mà vẫn có người đặt, thì cộng thêm 60 giây, in ra thông báo
+    // nếu việc parse thời gian bị lỗi định dạng, in ra thông báo lỗi
+}
 }
 
