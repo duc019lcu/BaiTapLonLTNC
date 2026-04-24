@@ -1,9 +1,14 @@
-module com.auction.onlineauctionsystem {
+module com.auction {
     requires javafx.controls;
     requires javafx.fxml;
 
-    opens com.auction.onlineauctionsystem to javafx.fxml;
-    opens com.auction.onlineauctionsystem.controller to javafx.fxml; // Cho phép FXML truy cập Controller
+    exports com.auction;
+    exports com.auction.client;
+    exports com.auction.client.controller;
+    exports com.auction.common.models;
+    exports com.auction.common.util;
+    exports com.auction.domain;
 
-    exports com.auction.onlineauctionsystem;
+    opens com.auction.client to javafx.fxml;
+    opens com.auction.client.controller to javafx.fxml;
 }
