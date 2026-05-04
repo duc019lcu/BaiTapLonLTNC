@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<HBox spacing="20" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.bai_tap_lon.controller.SellerController" prefWidth="1000" prefHeight="600">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <VBox spacing="10" prefWidth="350" style="-fx-background-color: #f4f4f4; -fx-padding: 15; -fx-background-radius: 10;">
+        <Label text="QUẢN LÝ HÀNG HÓA" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #333;"/>
+
+        <Separator/>
+
+        <Label text="Thông tin chung" style="-fx-font-weight: bold;"/>
+        <TextField fx:id="txtId" promptText="Mã sản phẩm (ID)"/>
+        <TextField fx:id="txtName" promptText="Tên sản phẩm"/>
+        <TextArea fx:id="txtDescription" promptText="Mô tả sản phẩm" prefHeight="60"/>
+        <TextField fx:id="txtInitPrice" promptText="Giá khởi điểm (VND)"/>
+
+        <Label text="Phân loại" style="-fx-font-weight: bold;"/>
+        <ComboBox fx:id="cbCategory" promptText="-- Chọn loại hàng --" prefWidth="350" onAction="#handleCategoryChange"/>
+
+        <VBox fx:id="paneDynamicFields" spacing="10">
+            <VBox fx:id="vboxElectronics" spacing="10" visible="false" managed="false">
+                <TextField fx:id="txtElec1" promptText="Thương hiệu"/>
+                <TextField fx:id="txtElec2" promptText="Bảo hành (tháng)"/>
+                <TextField fx:id="txtElec3" promptText="Model"/>
+                <TextField fx:id="txtElec4" promptText="Thông số khác"/>
+            </VBox>
+
+            <VBox fx:id="vboxArt" spacing="10" visible="false" managed="false">
+                <TextField fx:id="txtArt1" promptText="Nghệ sĩ"/>
+                <TextField fx:id="txtArt2" promptText="Năm sáng tác (Số)"/>
+                <TextField fx:id="txtArt3" promptText="Kỹ thuật vẽ"/>
+            </VBox>
+
+            <VBox fx:id="vboxVehicle" spacing="10" visible="false" managed="false">
+                <TextField fx:id="txtVeh1" promptText="Hãng xe"/>
+                <TextField fx:id="txtVeh2" promptText="Loại động cơ"/>
+                <TextField fx:id="txtVeh3" promptText="Số dặm đã đi (Số)"/>
+            </VBox>
+        </VBox>
+
+        <HBox spacing="10" alignment="CENTER">
+            <Button text="THÊM MỚI" onAction="#handleAdd" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;" prefWidth="100"/>
+            <Button text="XÓA" onAction="#handleDelete" style="-fx-background-color: #f44336; -fx-text-fill: white;" prefWidth="80"/>
+        </HBox>
+    </VBox>
+
+    <VBox HBox.hgrow="ALWAYS" spacing="10">
+        <Label text="DANH SÁCH HÀNG HÓA TRONG KHO" style="-fx-font-weight: bold;"/>
+        <TableView fx:id="tableItems" VBox.vgrow="ALWAYS">
+            <columns>
+                <TableColumn fx:id="colId" text="ID" prefWidth="60"/>
+                <TableColumn fx:id="colName" text="Tên SP" prefWidth="120"/>
+                <TableColumn fx:id="colCategory" text="Loại" prefWidth="100"/>
+                <TableColumn fx:id="colPrice" text="Giá (VND)" prefWidth="100"/>
+                <TableColumn fx:id="colDesc" text="Mô tả" prefWidth="200"/>
+            </columns>
+        </TableView>
+    </VBox>
+</HBox>

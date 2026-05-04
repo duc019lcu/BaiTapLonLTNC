@@ -1,0 +1,11 @@
++ FXML chính là bản vẽ kiến trúc và gạch vữa: Nó quyết định cửa chính nằm ở đâu, nhà có mấy phòng, màu sơn là gì. Nó chỉ làm nhiệm vụ hiển thị.
++ File Controller (Java) chính là hệ thống điện nước: Nó quyết định khi bạn bấm công tắc (trên tường FXML), thì bóng đèn nào sẽ sáng.
++ fx:controller="..." (Cầu nối): Nó luôn nằm ở cái thẻ ngoài cùng nhất của file FXML. Nó khai báo: "Ê giao diện, mọi nút bấm và dữ liệu ở đây sẽ do cái file Java có tên này xử lý nhé!".
++ fx:id="..." (Căn cước công dân): Nếu bạn tạo ra một ô nhập chữ (TextField), làm sao file Java lấy được chữ bạn vừa gõ? Bạn phải đặt cho ô đó một cái tên bằng fx:id="txtTen". Sang file Java, gọi txtTen.getText() là lấy được.
++ onAction="#tên_hàm" (Cò súng): Thường dùng cho Nút bấm (Button) hoặc ComboBox. Nó bảo là: "Khi người dùng click vào tôi, hãy chạy cái hàm #tên_hàm bên file Java đi!".
++ <HBox> (Hộp nằm ngang): * Dùng ở đâu trong file của bạn? Nó là cái thẻ to nhất ôm trọn toàn bộ file để chia màn hình làm 2 nửa trái-phải. Nó cũng được dùng để xếp 2 cái nút bấm "Thêm mới" và "Xóa" nằm cạnh nhau.
++ <VBox> (Hộp nằm dọc): Dùng ở đâu? Nó chứa nguyên cái form bên trái, ép các ô từ "ID" -> "Tên" -> "Mô tả" xếp hàng dọc từ trên xuống. Nó cũng dùng để làm các hộp ẩn/hiện động cho từng loại hàng hóa (vboxElectronics, vboxArt)
++ <TextField> (Ô gõ 1 dòng): Dùng ở đâu? Tất cả các ô nhập liệu ngắn: Mã ID, Tên, Giá tiền, Hãng xe, Năm sáng tác. Gõ hết dòng là thôi, không Enter xuống dòng được.
++ <TextArea> (Ô gõ nhiều dòng): Dùng ở đâu? Chỉ dùng duy nhất cho ô Mô tả. Vì mô tả sản phẩm thường dài, nên dùng cái này để khách hàng có khoảng trống to hơn và gõ Enter xuống dòng thoải mái.
++ <ComboBox> (Danh sách xổ xuống): Dùng ở đâu? Chính là cái ô để chọn "Loại hàng". Bấm vào nó thả xuống 5 loại: Electronics, Art, Vehicle...
+...

@@ -1,6 +1,7 @@
 package com.bai_tap_lon.dao;
-import com.bai_tap_lon.model.Item;
 import com.bai_tap_lon.factory.ItemFactory;
+import com.bai_tap_lon.model.Item;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -39,7 +40,7 @@ public class ItemDAO { //Data Acess Object, như là 1 ng thủ kho quản lí k
                String description =parts[3];
                double initPrice=Double.parseDouble(parts[4]);
                String[] metadata =Arrays.copyOfRange(parts,5,parts.length);
-               Item item=ItemFactory.createItem(type,id,name, description, initPrice, metadata);
+               Item item= ItemFactory.createItem(type,id,name, description, initPrice, metadata);
                if (item != null){
                    items.add(item);
                }
