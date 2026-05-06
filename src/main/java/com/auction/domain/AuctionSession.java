@@ -12,19 +12,28 @@ public class AuctionSession {
     private String itemID; // ID đồ bán
     private String sellerID; // ID người bán
     private double currentHighestBid; // giá đang đặt cao nhất
+    private String currentHighestBidderID; // ID người đặt giá cao nhất
     private String winnerID; // ID người thắng
-    private String startTime; // giờ bắt đàu
-    private String endTime; // giờ kết thúc 
+    private LocalDateTime startTime; // giờ bắt đầu
+    private LocalDateTime endTime; // giờ kết thúc
     private AuctionStatus status; // trạng thái
+    private List<BidTransaction> bidHistory; // lịch sử tất cả các lần đặt giá
+    private static final long ANTI_SNIPING_SECONDS = 30; // Số giây cuối phiên để kích hoạt gia hạn
+    private static final long EXTENSION_SECONDS = 60; // Thêm bao nhiêu giây khi gia hạn
 
-    public AuctionSession(String auctionID, String itemID, String sellerID, double startPrice) {
-    this.auctionID = auctionID;
-    this.itemID = itemID;
-    this.sellerID = sellerID;
-    this.currentHighestBid =startPrice;
-    this.winnerID = "None"; // chưa có người thắng
-    this.status = AuctionStatus.OPEN; // khởi tạo trạng thái ban đầu là OPEN
-}
+    public AuctionSession(String auctionID, String itemID, String sellerID, double startPrice,
+                         LocalDateTime startTime, LocalDateTime endTime) {
+        this.auctionID = auctionID;
+        this.itemID = itemID;
+        this.sellerID = sellerID;
+        this.currentHighestBid = startPrice;
+        this.currentHighestBidderID = null;
+        this.winnerID = null;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.status = AuctionStatus.OPEN;
+        this.bidHistory = new ArrayList<>();
+    }
 
     public String getAuctionID() {
         return auctionID;

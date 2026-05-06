@@ -60,6 +60,8 @@ public class ClientHandler implements Runnable {
         AuctionManager manager = AuctionManager.getInstance();
 
         switch (command) {
+            case "LOGIN":
+                return processLogin(parts);
             case "PLACE_BID":
                 return processBid(parts, manager);
             case "LIST":
@@ -70,6 +72,27 @@ public class ClientHandler implements Runnable {
                 return "TAM_BIET";
             default:
                 return "LOI|Lenh khong hop le";
+        }
+    }
+
+    private String processLogin(String[] parts) {
+        if (parts.length != 3) {
+            return "LOI|Dinh dang: LOGIN|username|password";
+        }
+        String username = parts[1];
+        String password = parts[2];
+
+        try {
+            com.auction.server.dao.UserDAO userDAO = new com.auction.server.dao.UserDAO();
+            com.auction.common.models.User user = userDAO.getUserByUsername(username);
+            if (user != null && user.getPassword().equals(password)) {
+                return "LOGIN_SUCCESS|" + user.getRole() + "|" + user.getId() + "|" + user.getFullName() + "|" + user.getEmail();
+            } else {
+                return "LOGIN_FAILED|Sai tai khoan hoac mat khau";
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "LOI|Loi he thong: " + e.getMessage();
         }
     }
 

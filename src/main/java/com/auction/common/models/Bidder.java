@@ -9,6 +9,9 @@ public class Bidder extends User {
     public String getRole() {
         return "BIDDER";
     }
+    public double getBalance() {
+        return balance;
+    }
     @Override
     public void printInfo() {
         super.printInfo();
