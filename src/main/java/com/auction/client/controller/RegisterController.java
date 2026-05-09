@@ -58,4 +58,9 @@ public class RegisterController {
         Alert alert = new Alert(Alert.AlertType.ERROR, "Ten dang nhap da ton tai!");
         alert.show();
     }
+
+    @FXML
+    void handleLoginRedirect(ActionEvent event) {
+        SceneUtil.changeScene(event, "Login.fxml", "Dang nhap");
+    }
 }
