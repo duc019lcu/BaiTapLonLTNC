@@ -10,7 +10,7 @@ import javafx.scene.control.TextField;
 // Cầu nối FXML ↔ domain: gọi AuctionSession, cập nhật control.
 public class DemoAuctionController {
 
-    private final AuctionSession session = new AuctionSession("001", "LAPTOP", "SELLER1", 500.0);
+    private final AuctionSession session = new AuctionSession("001", "LAPTOP", "SELLER1", 500.0, java.time.LocalDateTime.now(), java.time.LocalDateTime.now().plusHours(1));
 
     @FXML
     private Label lblPrice;

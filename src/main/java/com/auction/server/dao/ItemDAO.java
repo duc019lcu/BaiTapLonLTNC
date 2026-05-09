@@ -55,19 +55,19 @@ public class ItemDAO {
         // Factory Pattern nên được áp dụng ở đây, tạm thời dùng Switch-Case
         switch (category.toUpperCase()) {
             case "ART":
-                return new Art(id, name, description, initPrice, category);
+                return new Art(id, name, description, initPrice, "Unknown Artist", 0, "Unknown Technique");
             case "ELECTRONICS":
-                return new Electronics(id, name, description, initPrice, category);
+                return new Electronics(id, name, description, initPrice, "Unknown Brand", "Unknown Model", "Unknown Serial", "Unknown Warranty");
             case "FASHION":
-                return new Fashion(id, name, description, initPrice, category);
+                return new Fashion(id, name, description, initPrice, "Unknown Brand", "Unknown Size", "Unknown Material");
             case "FURNITURE":
-                return new Furniture(id, name, description, initPrice, category);
+                return new Furniture(id, name, description, initPrice, "Unknown Material", "Unknown Dimensions");
             case "VEHICLE":
-                return new Vehicle(id, name, description, initPrice, category);
+                return new Vehicle(id, name, description, initPrice, "Unknown Brand", "Unknown Model", 0);
             default:
                 // Nếu không có class con cụ thể, cần một Item implementation chung
                 // Tạm thời ném lỗi hoặc trả về subclass mặc định
-                return new Electronics(id, name, description, initPrice, category);
+                return new Electronics(id, name, description, initPrice, "Unknown", "Unknown", "Unknown", "Unknown");
         }
     }
 }

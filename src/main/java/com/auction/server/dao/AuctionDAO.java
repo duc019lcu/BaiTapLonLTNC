@@ -27,15 +27,15 @@ public class AuctionDAO {
             stmt.setString(2, session.getItemID());
             stmt.setString(3, session.getSellerID());
             
-            // Xử lý startTime là String trong Session, chuyển đổi cẩn thận
-            stmt.setString(4, session.getStartTime()); 
-            stmt.setString(5, session.getEndTime());
+            // Xử lý startTime
+            stmt.setString(4, session.getStartTime() != null ? session.getStartTime().toString() : null); 
+            stmt.setString(5, session.getEndTime() != null ? session.getEndTime().toString() : null);
             stmt.setString(6, session.getStatus().name());
             stmt.setString(7, session.getWinnerID());
             stmt.setDouble(8, session.getCurrentHighestBid());
 
-            stmt.setString(9, session.getStartTime());
-            stmt.setString(10, session.getEndTime());
+            stmt.setString(9, session.getStartTime() != null ? session.getStartTime().toString() : null);
+            stmt.setString(10, session.getEndTime() != null ? session.getEndTime().toString() : null);
             stmt.setString(11, session.getStatus().name());
             stmt.setString(12, session.getWinnerID());
             stmt.setDouble(13, session.getCurrentHighestBid());

@@ -62,6 +62,8 @@ public class ClientHandler implements Runnable {
         switch (command) {
             case "LOGIN":
                 return processLogin(parts);
+            case "REGISTER":
+                return processRegister(parts);
             case "PLACE_BID":
                 return processBid(parts, manager);
             case "LIST":
@@ -93,6 +95,33 @@ public class ClientHandler implements Runnable {
         } catch (Exception e) {
             e.printStackTrace();
             return "LOI|Loi he thong: " + e.getMessage();
+        }
+    }
+
+    private String processRegister(String[] parts) {
+        if (parts.length != 5) return "LOI|Dinh dang: REGISTER|username|password|email|role";
+        String username = parts[1];
+        String password = parts[2];
+        String email = parts[3];
+        String role = parts[4];
+        
+        try {
+            com.auction.server.dao.UserDAO userDAO = new com.auction.server.dao.UserDAO();
+            if (userDAO.getUserByUsername(username) != null) {
+                return "REGISTER_FAILED|Tên đăng nhập đã tồn tại!";
+            }
+            long id = System.currentTimeMillis();
+            com.auction.common.models.User newUser;
+            if ("SELLER".equals(role)) {
+                newUser = new com.auction.common.models.Seller(String.valueOf(id), username, password, username, email);
+            } else {
+                newUser = new com.auction.common.models.Bidder(String.valueOf(id), username, password, username, email, 0.0);
+            }
+            userDAO.saveUser(newUser);
+            return "REGISTER_SUCCESS";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "LOI|Lỗi DB: " + e.getMessage();
         }
     }
 

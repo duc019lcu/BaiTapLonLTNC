@@ -75,19 +75,19 @@ public class AuctionSession {
         this.winnerID = winnerID;
     }
 
-    public String getStartTime() {
+    public LocalDateTime getStartTime() {
         return startTime;
     }
 
-    public void setStartTime(String startTime) {
+    public void setStartTime(LocalDateTime startTime) {
         this.startTime = startTime;
     }
 
-    public String getEndTime() {
+    public LocalDateTime getEndTime() {
         return endTime;
     }
 
-    public void setEndTime(String endTime) {
+    public void setEndTime(LocalDateTime endTime) {
         this.endTime = endTime;
     }
 
@@ -131,13 +131,13 @@ public class AuctionSession {
 
         try {
             LocalDateTime now = LocalDateTime.now();
-            LocalDateTime end = LocalDateTime.parse(this.endTime);
+            LocalDateTime end = this.endTime;
             Duration duration = Duration.between(now, end);
             long secondsLeft = duration.getSeconds();
 
             if (secondsLeft > 0 && secondsLeft <= 30) {
                 LocalDateTime newEndTime = end.plusSeconds(60);
-                this.endTime = newEndTime.toString();
+                this.endTime = newEndTime;
                 this.status = AuctionStatus.EXTENDED;
                 System.out.println("[HỆ THỐNG]: Tự động gia hạn thêm 60s");
             }

@@ -26,4 +26,13 @@ public class UserManager {
     public void logout() {
         this.currentUser = null;
     }
+
+    public long generateId() {
+        return System.currentTimeMillis();
+    }
+
+    public boolean register(User user) {
+        System.out.println("Registered user: " + user.getUsername());
+        return true;
+    }
 }

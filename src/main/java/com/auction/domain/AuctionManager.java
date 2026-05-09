@@ -46,7 +46,7 @@ public class AuctionManager {
 
         // quét các phiên đang còn hoạt động để kết thúc phiên
                     try {
-                        LocalDateTime endTime = LocalDateTime.parse(session.getEndTime());
+                        LocalDateTime endTime = session.getEndTime();
                         if (now.isAfter(endTime)) {  // kiểm tra xem kết thúc chưa thì chuyển trạng thái rồi in ra thông báo
                             session.setStatus(AuctionStatus.FINISHED);
                             System.out.println("==> [HỆ THỐNG]: Phiên " + session.getAuctionID() + " đã kết thúc tự động!");
@@ -64,7 +64,7 @@ public class AuctionManager {
             return false;
         }
 
-        AuctionSession newSession = new AuctionSession(auctionID, itemID, sellerID, startPrice); // khởi tạo với 4 thông tin
+        AuctionSession newSession = new AuctionSession(auctionID, itemID, sellerID, startPrice, LocalDateTime.now(), LocalDateTime.now().plusHours(1)); // khởi tạo với 4 thông tin
         sessions.put(auctionID, newSession);
         return true;
     }
