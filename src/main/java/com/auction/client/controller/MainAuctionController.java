@@ -162,21 +162,20 @@ public class MainAuctionController {
 
         Button joinBtn = new Button("Tham gia");
         joinBtn.getStyleClass().add("btn-primary");
-        joinBtn.setOnAction(e -> {
-            selectedAuction = auction;
-            updateSelectedCardStyle((HBox) ((Node) e.getSource()).getParent().getParent());
-        });
+        joinBtn.setDisable("FINISHED".equalsIgnoreCase(auction.getStatus()));
 
         Button detailBtn = new Button("Chi tiết");
         detailBtn.getStyleClass().add("btn-secondary");
+
+        final HBox[] cardRef = new HBox[1];
+        joinBtn.setOnAction(e -> {
+            selectedAuction = auction;
+            updateSelectedCardStyle(cardRef[0]);
+        });
         detailBtn.setOnAction(e -> {
             selectedAuction = auction;
-            updateSelectedCardStyle((HBox) ((Node) e.getSource()).getParent().getParent());
-            showAlert(Alert.AlertType.INFORMATION, "Thông tin phiên",
-                    "Mã phiên: " + auction.getId()
-                            + "\nTên phiên: " + auction.getItem()
-                            + "\nGiá hiện tại: " + auction.getPrice()
-                            + "\nTrạng thái: " + auction.getStatus());
+            updateSelectedCardStyle(cardRef[0]);
+            showAuctionDetails(auction.getId(), auction.getItem());
         });
 
         HBox actions = new HBox(8, detailBtn, joinBtn);
@@ -196,6 +195,7 @@ public class MainAuctionController {
             selectedAuction = auction;
             updateSelectedCardStyle(card);
         });
+        cardRef[0] = card;
         return card;
     }
 
@@ -206,6 +206,37 @@ public class MainAuctionController {
         selectedCardNode = newSelectedCard;
         if (!selectedCardNode.getStyleClass().contains("auction-card-selected")) {
             selectedCardNode.getStyleClass().add("auction-card-selected");
+        }
+    }
+
+    private void showAuctionDetails(String auctionId, String auctionItem) {
+        String response = com.auction.client.service.NetworkClient.getInstance().sendRequest("GET_SESSION|" + auctionId);
+        if (response.startsWith("PHIEN|")) {
+            String[] parts = response.split("\\|");
+            String currentPrice = "?";
+            String currentWinner = "Chưa có";
+            String status = "?";
+            String endTime = "?";
+            for (int i = 1; i < parts.length; i++) {
+                String[] kv = parts[i].split("=", 2);
+                if (kv.length != 2) continue;
+                switch (kv[0]) {
+                    case "gia_hien_tai": currentPrice = kv[1]; break;
+                    case "nguoi_dan_dau": if (!kv[1].isBlank()) currentWinner = kv[1]; break;
+                    case "trang_thai": status = kv[1]; break;
+                    case "end_time": endTime = kv[1]; break;
+                }
+            }
+            showAlert(Alert.AlertType.INFORMATION, "Thông tin phiên",
+                    "Mã phiên: " + auctionId
+                            + "\nTên phiên: " + auctionItem
+                            + "\nGiá hiện tại: " + currentPrice
+                            + "\nNgười dẫn đầu: " + currentWinner
+                            + "\nTrạng thái: " + status
+                            + "\nThời gian kết thúc: " + endTime);
+        } else {
+            String message = response.contains("|") ? response.split("\\|", 2)[1] : "Không lấy được thông tin phiên.";
+            showAlert(Alert.AlertType.ERROR, "Lỗi", message);
         }
     }
 

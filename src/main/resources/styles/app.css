@@ -197,6 +197,160 @@
     -fx-padding: 2 2 2 2;
 }
 
+.main-footer {
+    -fx-padding: 18 22 18 22;
+    -fx-background-color: transparent;
+    -fx-alignment: center-right;
+}
+
+.page-bg {
+    -fx-background-color: linear-gradient(to bottom right, #eef2ff, #f8fafc);
+}
+
+.login-page {
+    -fx-background-image: radial-gradient(radius 320px at 20% 20%, rgba(79, 70, 229, 0.18), transparent 45%),
+                          radial-gradient(radius 240px at 85% 15%, rgba(16, 185, 129, 0.14), transparent 40%),
+                          radial-gradient(radius 260px at 65% 80%, rgba(59, 130, 246, 0.12), transparent 42%);
+    -fx-background-color: linear-gradient(to bottom right, #f1f5f9, #e2e8f0);
+}
+
+.login-info-panel {
+    -fx-background-color: rgba(31, 64, 228, 0.95);
+    -fx-background-radius: 28;
+    -fx-padding: 28;
+    -fx-pref-width: 420;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.18), 28, 0.2, 0, 12);
+}
+
+.login-info-panel .brand-title {
+    -fx-text-fill: white;
+    -fx-font-size: 36px;
+}
+
+.login-info-panel .hero-subtitle {
+    -fx-text-fill: rgba(255, 255, 255, 0.82);
+}
+
+.login-info-card {
+    -fx-background-color: rgba(255, 255, 255, 0.12);
+    -fx-background-radius: 16;
+    -fx-padding: 16;
+}
+
+.login-form-card {
+    -fx-background-color: white;
+    -fx-background-radius: 30;
+    -fx-padding: 30;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.12), 28, 0.18, 0, 12);
+    -fx-pref-width: 420;
+}
+
+.login-form-card .form-title {
+    -fx-text-fill: #0f172a;
+}
+
+.login-form-card .form-subtitle {
+    -fx-text-fill: #64748b;
+}
+
+.login-form-card .field-label {
+    -fx-text-fill: #475569;
+}
+
+.login-decorative-line {
+    -fx-background-color: linear-gradient(to right, #2563eb, #7c3aed);
+    -fx-pref-height: 4;
+    -fx-background-radius: 999;
+}
+
+.form-page {
+    -fx-padding: 28;
+    -fx-background-color: white;
+    -fx-background-radius: 22;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.12), 26, 0.2, 0, 12);
+}
+
+.form-title {
+    -fx-font-size: 26px;
+    -fx-font-weight: 800;
+    -fx-text-fill: #0f172a;
+}
+
+.form-subtitle {
+    -fx-font-size: 14px;
+    -fx-text-fill: #64748b;
+}
+
+.text-area, .text-input, .combo-box {
+    -fx-background-color: #f8fafc;
+    -fx-border-color: #cbd5e1;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+    -fx-padding: 10 14 10 14;
+    -fx-font-size: 14px;
+}
+
+.text-area:focused, .text-input:focused, .combo-box:focused {
+    -fx-border-color: #2563eb;
+    -fx-background-color: #ffffff;
+}
+
+.chart-panel {
+    -fx-background-color: white;
+    -fx-background-radius: 18;
+    -fx-padding: 18;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.08), 18, 0.15, 0, 8);
+}
+
+.status-card {
+    -fx-background-color: white;
+    -fx-background-radius: 16;
+    -fx-padding: 18;
+    -fx-border-color: #e2e8f0;
+    -fx-border-radius: 16;
+    -fx-effect: dropshadow(gaussian, rgba(30, 41, 59, 0.08), 12, 0.12, 0, 4);
+}
+
+.timer-card {
+    -fx-background-color: linear-gradient(to right, #eff6ff, #e0f2fe);
+    -fx-background-radius: 16;
+}
+
+.winner-card {
+    -fx-background-color: linear-gradient(to right, #ecfdf5, #dcfce7);
+    -fx-background-radius: 16;
+}
+
+.auction-room-header {
+    -fx-background-color: linear-gradient(to right, #1d4ed8, #3b82f6);
+    -fx-padding: 18 24 18 24;
+}
+
+.auction-room-header .header-title {
+    -fx-text-fill: white;
+    -fx-font-size: 22px;
+    -fx-font-weight: 800;
+}
+
+.auction-room-actions {
+    -fx-background-color: #f8fafc;
+    -fx-background-radius: 16;
+    -fx-padding: 18;
+    -fx-alignment: center;
+}
+
+.auction-room-actions .btn-primary,
+.auction-room-actions .btn-secondary,
+.auction-room-actions .btn-danger {
+    -fx-min-width: 180px;
+}
+
+.section-title {
+    -fx-text-fill: #0f172a;
+    -fx-font-size: 18px;
+    -fx-font-weight: 800;
+}
+
 .auction-card {
     -fx-background-color: white;
     -fx-background-radius: 12;

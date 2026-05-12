@@ -188,8 +188,9 @@ public class ClientHandler implements Runnable {
         return "PHIEN|id=" + session.getAuctionID()
                 + "|vat_pham=" + session.getItemID()
                 + "|gia_hien_tai=" + session.getCurrentHighestBid()
-                + "|nguoi_dan_dau=" + session.getWinnerID()
-                + "|trang_thai=" + session.getStatus();
+                + "|nguoi_dan_dau=" + (session.getWinnerID() == null ? "" : session.getWinnerID())
+                + "|trang_thai=" + session.getStatus()
+                + "|end_time=" + session.getEndTime();
     }
 
     private void cleanup() {
