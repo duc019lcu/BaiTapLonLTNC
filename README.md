@@ -1,4 +1,5 @@
 # Auction System Project
+<!-- Fixed auction session persistence and UI navigation issues -->
 Hệ thống đấu giá trực tuyến được xây dựng trên nền tảng **Java OOP**, áp dụng các Design Patterns chuyên sâu và mô hình **Client-Server (Socket)** để đảm bảo tính thời gian thực.
 
 ## Vai trò và Phân công nhiệm vụ
