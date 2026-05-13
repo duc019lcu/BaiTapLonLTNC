@@ -1,5 +1,6 @@
 package com.auction.domain;
 
+import com.auction.server.dao.AuctionDAO;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,11 +15,13 @@ public class AuctionManager {
     // volatile: đảm bảo giá trị của biến luôn được cập nhật chính xác giữa các luồng khác nhau.
     private static volatile AuctionManager instance;
     private final Map<String, AuctionSession> sessions;
+    private final AuctionDAO auctionDAO = new AuctionDAO();
 
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1); 
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     private AuctionManager() {
         this.sessions = new ConcurrentHashMap<>(); // Khởi tạo bộ lưu trữ an toàn đa luồng
+        loadSessionsFromDatabase(); // Load data từ database khi khởi động
         startAutoCloseTask(); // Kích hoạt ngay bộ quét thời gian tự động
     }
 
@@ -49,6 +52,7 @@ public class AuctionManager {
                         LocalDateTime endTime = session.getEndTime();
                         if (now.isAfter(endTime)) {  // kiểm tra xem kết thúc chưa thì chuyển trạng thái rồi in ra thông báo
                             session.setStatus(AuctionStatus.FINISHED);
+                            saveSessionToDatabase(session); // Lưu vào database
                             System.out.println("==> [HỆ THỐNG]: Phiên " + session.getAuctionID() + " đã kết thúc tự động!");
                         }
                     } catch (Exception e) {
@@ -60,13 +64,27 @@ public class AuctionManager {
 
 
     public boolean createSession(String auctionID, String itemID, String sellerID, double startPrice) { // tạo session mới
-        if (sessions.containsKey(auctionID)) { // kiểm tra bằng auctionID
+        return createSession(auctionID, itemID, itemID, sellerID, startPrice, 60);
+    }
+
+    public boolean createSession(String auctionID, String itemID, String itemName, String sellerID, double startPrice, int durationMinutes) {
+        if (sessions.containsKey(auctionID)) {
             return false;
         }
 
-        AuctionSession newSession = new AuctionSession(auctionID, itemID, sellerID, startPrice, LocalDateTime.now(), LocalDateTime.now().plusHours(1)); // khởi tạo với 4 thông tin
+        LocalDateTime now = LocalDateTime.now();
+        long safeDuration = durationMinutes > 0 ? durationMinutes : 60;
+        AuctionSession newSession = new AuctionSession(auctionID, itemID, itemName, sellerID, startPrice,
+                now, now.plusMinutes(safeDuration));
         sessions.put(auctionID, newSession);
+        saveSessionToDatabase(newSession); // Lưu vào database
         return true;
+    }
+
+    public void addSession(AuctionSession session) {
+        if (session != null && session.getAuctionID() != null) {
+            sessions.put(session.getAuctionID(), session);
+        }
     }
 
     public boolean startSession(String auctionID) {
@@ -76,6 +94,7 @@ public class AuctionManager {
         }
 
         session.setStatus(AuctionStatus.RUNNING);
+        saveSessionToDatabase(session); // Lưu vào database
         return true;
     }
     // tìm phiên theo Id, nếu thấy và đang ở trạng thái OPEN, chuyển sang RUNNING
@@ -86,7 +105,11 @@ public class AuctionManager {
             return false;
         }
 
-        return session.processBid(bidderID, bidAmount);
+        boolean result = session.processBid(bidderID, bidAmount);
+        if (result) {
+            saveSessionToDatabase(session); // Lưu vào database khi đặt giá thành công
+        }
+        return result;
     }
 
     // tìm phiên đấu giá tương ứng rồi ủy quyền cho AuctionSession xử lý
@@ -102,17 +125,42 @@ public class AuctionManager {
         }
 
         session.setStatus(AuctionStatus.FINISHED);
+        saveSessionToDatabase(session); // Lưu vào database
         return true;
-    }
-
-    // đóng phiên thủ công
-
-    public AuctionSession getSession(String auctionID) {
-        return sessions.get(auctionID);
     }
 
     public List<AuctionSession> getAllSessions() {
         return Collections.unmodifiableList(new ArrayList<>(sessions.values()));
     }
-    // truy xuất dữ liệu
+
+    public AuctionSession getSession(String auctionID) {
+        return sessions.get(auctionID);
+    }
+
+    // Lưu session vào database
+    private void saveSessionToDatabase(AuctionSession session) {
+        try {
+            auctionDAO.saveSession(session);
+        } catch (Exception e) {
+            System.err.println("[CẢNH BÁO] Lỗi lưu phiên vào database: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    // Load tất cả sessions từ database khi khởi động
+    private void loadSessionsFromDatabase() {
+        try {
+            List<AuctionSession> loadedSessions = auctionDAO.getAllSessions();
+            for (AuctionSession session : loadedSessions) {
+                // Chỉ load các phiên chưa kết thúc
+                if (session.getStatus() != AuctionStatus.FINISHED) {
+                    sessions.put(session.getAuctionID(), session);
+                    System.out.println("[HỆ THỐNG] Đã tải phiên từ database: " + session.getAuctionID());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[CẢNH BÁO] Lỗi tải phiên từ database: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 }

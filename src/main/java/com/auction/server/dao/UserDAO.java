@@ -16,8 +16,10 @@ public class UserDAO {
     public void saveUser(User user) throws SQLException {
         String sql = "INSERT INTO users (id, username, password, full_name, email, role, balance) VALUES (?, ?, ?, ?, ?, ?, ?) " +
                      "ON DUPLICATE KEY UPDATE username=?, password=?, full_name=?, email=?, role=?, balance=?";
-        try (Connection conn = DatabaseUtil.getInstance().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        Connection conn = DatabaseUtil.getInstance().getConnection();
+        PreparedStatement stmt = null;
+        try {
+            stmt = conn.prepareStatement(sql);
             stmt.setString(1, user.getId());
             stmt.setString(2, user.getUsername());
             stmt.setString(3, user.getPassword());
@@ -31,7 +33,6 @@ public class UserDAO {
             }
             stmt.setDouble(7, balance);
 
-            // For ON DUPLICATE KEY UPDATE
             stmt.setString(8, user.getUsername());
             stmt.setString(9, user.getPassword());
             stmt.setString(10, user.getFullName());
@@ -40,17 +41,42 @@ public class UserDAO {
             stmt.setDouble(13, balance);
 
             stmt.executeUpdate();
+        } finally {
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (SQLException e) {
+                    System.err.println("Lỗi đóng statement: " + e.getMessage());
+                }
+            }
         }
     }
 
     public User getUserByUsername(String username) throws SQLException {
         String sql = "SELECT * FROM users WHERE username = ?";
-        try (Connection conn = DatabaseUtil.getInstance().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        Connection conn = DatabaseUtil.getInstance().getConnection();
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+        try {
+            stmt = conn.prepareStatement(sql);
             stmt.setString(1, username);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return mapRowToUser(rs);
+            rs = stmt.executeQuery();
+            if (rs.next()) {
+                return mapRowToUser(rs);
+            }
+        } finally {
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException e) {
+                    System.err.println("Lỗi đóng ResultSet: " + e.getMessage());
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (SQLException e) {
+                    System.err.println("Lỗi đóng statement: " + e.getMessage());
                 }
             }
         }

@@ -10,6 +10,7 @@ import java.util.List; // interface chung
 public class AuctionSession {
     private String auctionID; //ID phiên đấu giá
     private String itemID; // ID đồ bán
+    private String itemName; // Tên đồ bán
     private String sellerID; // ID người bán
     private double currentHighestBid; // giá đang đặt cao nhất
     private String currentHighestBidderID; // ID người đặt giá cao nhất
@@ -23,8 +24,14 @@ public class AuctionSession {
 
     public AuctionSession(String auctionID, String itemID, String sellerID, double startPrice,
                          LocalDateTime startTime, LocalDateTime endTime) {
+        this(auctionID, itemID, itemID, sellerID, startPrice, startTime, endTime);
+    }
+
+    public AuctionSession(String auctionID, String itemID, String itemName, String sellerID, double startPrice,
+                          LocalDateTime startTime, LocalDateTime endTime) {
         this.auctionID = auctionID;
         this.itemID = itemID;
+        this.itemName = itemName;
         this.sellerID = sellerID;
         this.currentHighestBid = startPrice;
         this.currentHighestBidderID = null;
@@ -49,6 +56,18 @@ public class AuctionSession {
 
     public void setItemID(String itemID) {
         this.itemID = itemID;
+    }
+
+    public String getItemName() {
+        return itemName;
+    }
+
+    public void setItemName(String itemName) {
+        this.itemName = itemName;
+    }
+
+    public String getDisplayItem() {
+        return itemName != null && !itemName.isBlank() ? itemName : itemID;
     }
 
     public String getSellerID() {

@@ -19,15 +19,14 @@ public class AuctionDAO {
                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
                      "ON DUPLICATE KEY UPDATE start_time=?, end_time=?, status=?, winner_id=?, current_highest_bid=?";
         
-        DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
-        try (Connection conn = DatabaseUtil.getInstance().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        Connection conn = DatabaseUtil.getInstance().getConnection();
+        PreparedStatement stmt = null;
+        try {
+            stmt = conn.prepareStatement(sql);
             stmt.setString(1, session.getAuctionID());
             stmt.setString(2, session.getItemID());
             stmt.setString(3, session.getSellerID());
             
-            // Xử lý startTime
             stmt.setString(4, session.getStartTime() != null ? session.getStartTime().toString() : null); 
             stmt.setString(5, session.getEndTime() != null ? session.getEndTime().toString() : null);
             stmt.setString(6, session.getStatus().name());
@@ -41,18 +40,93 @@ public class AuctionDAO {
             stmt.setDouble(13, session.getCurrentHighestBid());
 
             stmt.executeUpdate();
+        } finally {
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (SQLException e) {
+                    System.err.println("Lỗi đóng statement: " + e.getMessage());
+                }
+            }
+            // KHÔNG đóng conn - giữ để dùng lại
         }
     }
 
     public void saveBidTransaction(BidTransaction tx) throws SQLException {
         String sql = "INSERT INTO bid_transactions (auction_id, bidder_id, bid_amount, bid_time) VALUES (?, ?, ?, ?)";
-        try (Connection conn = DatabaseUtil.getInstance().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        Connection conn = DatabaseUtil.getInstance().getConnection();
+        PreparedStatement stmt = null;
+        try {
+            stmt = conn.prepareStatement(sql);
             stmt.setString(1, tx.getAuctionID());
             stmt.setString(2, tx.getBidderID());
             stmt.setDouble(3, tx.getBidAmount());
             stmt.setString(4, tx.getBidTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
             stmt.executeUpdate();
+        } finally {
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (SQLException e) {
+                    System.err.println("Lỗi đóng statement: " + e.getMessage());
+                }
+            }
         }
+    }
+
+    public java.util.List<com.auction.domain.AuctionSession> getAllSessions() throws SQLException {
+        java.util.List<com.auction.domain.AuctionSession> sessions = new java.util.ArrayList<>();
+        String sql = "SELECT s.auction_id, s.item_id, i.name AS item_name, s.seller_id, s.start_time, s.end_time, s.status, s.winner_id, s.current_highest_bid " +
+                     "FROM auction_sessions s LEFT JOIN items i ON s.item_id = i.id";
+
+        Connection conn = DatabaseUtil.getInstance().getConnection();
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+        try {
+            stmt = conn.prepareStatement(sql);
+            rs = stmt.executeQuery();
+            while (rs.next()) {
+                String auctionId = rs.getString("auction_id");
+                String itemId = rs.getString("item_id");
+                String itemName = rs.getString("item_name");
+                String sellerId = rs.getString("seller_id");
+                java.time.LocalDateTime startTime = java.time.LocalDateTime.parse(rs.getString("start_time"));
+                java.time.LocalDateTime endTime = java.time.LocalDateTime.parse(rs.getString("end_time"));
+                String status = rs.getString("status");
+                String winnerId = rs.getString("winner_id");
+                double highestBid = rs.getDouble("current_highest_bid");
+
+                com.auction.domain.AuctionSession session = new com.auction.domain.AuctionSession(
+                        auctionId,
+                        itemId,
+                        itemName != null ? itemName : itemId,
+                        sellerId,
+                        highestBid,
+                        startTime,
+                        endTime);
+                session.setStatus(com.auction.domain.AuctionStatus.valueOf(status));
+                session.setWinnerID(winnerId);
+                if (highestBid > session.getCurrentHighestBid()) {
+                    session.setCurrentHighestBid(highestBid);
+                }
+                sessions.add(session);
+            }
+        } finally {
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException e) {
+                    System.err.println("Lỗi đóng ResultSet: " + e.getMessage());
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (SQLException e) {
+                    System.err.println("Lỗi đóng statement: " + e.getMessage());
+                }
+            }
+        }
+        return sessions;
     }
 }
