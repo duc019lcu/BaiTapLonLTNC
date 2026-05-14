@@ -11,8 +11,28 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 
 public class AuctionDAO {
+
+    // MySQL trả về định dạng "yyyy-MM-dd HH:mm:ss" (dấu cách, không phải 'T')
+    private static final DateTimeFormatter MYSQL_DATETIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    private LocalDateTime parseDateTime(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            // Thử parse ISO format trước (có chữ 'T')
+            return LocalDateTime.parse(raw);
+        } catch (Exception e1) {
+            try {
+                // Parse MySQL format (có dấu cách)
+                return LocalDateTime.parse(raw.trim(), MYSQL_DATETIME);
+            } catch (Exception e2) {
+                System.err.println("[DAO] Không parse được datetime: " + raw);
+                return LocalDateTime.now();
+            }
+        }
+    }
 
     public void saveSession(AuctionSession session) throws SQLException {
         String sql = "INSERT INTO auction_sessions (auction_id, item_id, seller_id, start_time, end_time, status, winner_id, current_highest_bid) " +
@@ -90,8 +110,8 @@ public class AuctionDAO {
                 String itemId = rs.getString("item_id");
                 String itemName = rs.getString("item_name");
                 String sellerId = rs.getString("seller_id");
-                java.time.LocalDateTime startTime = java.time.LocalDateTime.parse(rs.getString("start_time"));
-                java.time.LocalDateTime endTime = java.time.LocalDateTime.parse(rs.getString("end_time"));
+                java.time.LocalDateTime startTime = parseDateTime(rs.getString("start_time"));
+                java.time.LocalDateTime endTime = parseDateTime(rs.getString("end_time"));
                 String status = rs.getString("status");
                 String winnerId = rs.getString("winner_id");
                 double highestBid = rs.getDouble("current_highest_bid");

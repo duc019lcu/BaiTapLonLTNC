@@ -29,6 +29,15 @@ public class AuctionServer {
     public void start() throws IOException {
         initializeDatabase();  // Khởi tạo database
         seedDemoData();
+        
+        // Thêm shutdown hook để lưu dữ liệu khi server tắt
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("[MÁY CHỦ] ⚠️ Server đang tắt, lưu dữ liệu...");
+            AuctionManager.getInstance().persistAllSessions();
+            threadPool.shutdown();
+            System.out.println("[MÁY CHỦ] ✓ Dữ liệu đã được lưu");
+        }));
+        
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             System.out.println("[MÁY CHỦ] Đang lắng nghe ở cổng " + port);
             while (true) {
@@ -55,7 +64,30 @@ public class AuctionServer {
 
     private void seedDemoData() {
         AuctionManager manager = AuctionManager.getInstance();
-        if (manager.createSession("A1", "ITEM1", "SELLER1", 500.0)) {
+        // Chỉ seed nếu chưa có phiên A1 (tránh tạo trùng)
+        if (manager.getSession("A1") != null) {
+            System.out.println("[MÁY CHỦ] Phiên mẫu A1 đã tồn tại, bỏ qua seed.");
+            return;
+        }
+        try {
+            // Insert item mẫu vào DB trước
+            com.auction.server.dao.ItemDAO itemDAO = new com.auction.server.dao.ItemDAO();
+            if (itemDAO.findById("ITEM1") == null) {
+                com.auction.common.models.Item demoItem =
+                    new com.auction.common.models.Electronics("ITEM1", "Laptop Demo", "Laptop mẫu cho demo", 500.0, "ELECTRONICS", "", "", "");
+                itemDAO.saveItem(demoItem);
+            }
+            // Insert seller mẫu vào DB trước
+            com.auction.server.dao.UserDAO userDAO = new com.auction.server.dao.UserDAO();
+            if (userDAO.getUserByUsername("SELLER1") == null) {
+                com.auction.common.models.User demoSeller =
+                    new com.auction.common.models.Seller("SELLER1", "SELLER1", "seller123", "Seller Demo", "seller@demo.com");
+                userDAO.saveUser(demoSeller);
+            }
+        } catch (Exception e) {
+            System.err.println("[MÁY CHỦ] Lỗi seed dữ liệu mẫu: " + e.getMessage());
+        }
+        if (manager.createSession("A1", "ITEM1", "Laptop Demo", "SELLER1", 500.0, 60)) {
             manager.startSession("A1");
             System.out.println("[MÁY CHỦ] Đã tạo phiên mẫu A1.");
         }
@@ -123,7 +155,7 @@ public class AuctionServer {
                 "category VARCHAR(50) NOT NULL" +
             ")");
             
-            // Tạo bảng auction_sessions
+            // Tạo bảng auction_sessions (không có FK để tránh lỗi khi seed/test)
             dbStmt.executeUpdate("CREATE TABLE IF NOT EXISTS auction_sessions (" +
                 "auction_id VARCHAR(50) PRIMARY KEY," +
                 "item_id VARCHAR(50) NOT NULL," +
@@ -132,21 +164,16 @@ public class AuctionServer {
                 "end_time DATETIME NOT NULL," +
                 "status VARCHAR(20) NOT NULL," +
                 "winner_id VARCHAR(50)," +
-                "current_highest_bid DOUBLE DEFAULT 0," +
-                "FOREIGN KEY (item_id) REFERENCES items(id)," +
-                "FOREIGN KEY (seller_id) REFERENCES users(id)," +
-                "FOREIGN KEY (winner_id) REFERENCES users(id)" +
+                "current_highest_bid DOUBLE DEFAULT 0" +
             ")");
             
-            // Tạo bảng bid_transactions
+            // Tạo bảng bid_transactions (không có FK để tránh lỗi)
             dbStmt.executeUpdate("CREATE TABLE IF NOT EXISTS bid_transactions (" +
                 "id INT AUTO_INCREMENT PRIMARY KEY," +
                 "auction_id VARCHAR(50) NOT NULL," +
                 "bidder_id VARCHAR(50) NOT NULL," +
                 "bid_amount DOUBLE NOT NULL," +
-                "bid_time DATETIME NOT NULL," +
-                "FOREIGN KEY (auction_id) REFERENCES auction_sessions(auction_id)," +
-                "FOREIGN KEY (bidder_id) REFERENCES users(id)" +
+                "bid_time DATETIME NOT NULL" +
             ")");
             
             dbStmt.close();

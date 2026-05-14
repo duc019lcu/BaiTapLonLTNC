@@ -32,6 +32,20 @@ public class ItemDAO {
         }
     }
 
+    public Item findById(String id) throws SQLException {
+        String sql = "SELECT * FROM items WHERE id = ?";
+        try (Connection conn = DatabaseUtil.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, id);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapRowToItem(rs);
+                }
+            }
+        }
+        return null;
+    }
+
     public List<Item> getAllItems() throws SQLException {
         List<Item> items = new ArrayList<>();
         String sql = "SELECT * FROM items";

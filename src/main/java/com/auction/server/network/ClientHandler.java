@@ -2,6 +2,9 @@ package com.auction.server.network;
 
 import com.auction.domain.AuctionManager;
 import com.auction.domain.AuctionSession;
+import com.auction.server.dao.ItemDAO;
+import com.auction.common.models.Item;
+import com.auction.common.models.Electronics;
 
 import java.io.*;
 import java.net.Socket;
@@ -70,6 +73,10 @@ public class ClientHandler implements Runnable {
                 return buildListResponse(manager);
             case "GET_SESSION":
                 return buildSessionResponse(parts, manager);
+            case "CREATE_AUCTION":
+                return processCreateAuction(parts, manager);
+            case "CREATE_ITEM":
+                return processCreateItem(parts);
             case "QUIT":
                 return "TAM_BIET";
             default:
@@ -161,6 +168,72 @@ public class ClientHandler implements Runnable {
                 + "|trang_thai=" + session.getStatus();
     }
 
+    /**
+     * Xử lý tạo phiên đấu giá mới.
+     * Định dạng: CREATE_AUCTION|auctionId|itemId|itemName|sellerId|startPrice|durationMinutes
+     */
+    private String processCreateAuction(String[] parts, AuctionManager manager) {
+        if (parts.length != 7) {
+            return "LOI|Dinh dang: CREATE_AUCTION|auctionId|itemId|itemName|sellerId|startPrice|durationMinutes";
+        }
+        String auctionId = parts[1];
+        String itemId    = parts[2];
+        String itemName  = parts[3];
+        String sellerId  = parts[4];
+        double startPrice;
+        int    durationMinutes;
+        try {
+            startPrice       = Double.parseDouble(parts[5]);
+            durationMinutes  = Integer.parseInt(parts[6]);
+        } catch (NumberFormatException e) {
+            return "LOI|Gia va thoi gian phai la so";
+        }
+
+        // Đảm bảo item tồn tại trong DB trước khi tạo phiên (tránh FK violation)
+        try {
+            ItemDAO itemDAO = new ItemDAO();
+            // Chỉ insert nếu chưa có
+            Item existing = itemDAO.findById(itemId);
+            if (existing == null) {
+                Item newItem = new Electronics(itemId, itemName, "", startPrice, "", "", "", "");
+                itemDAO.saveItem(newItem);
+            }
+        } catch (Exception e) {
+            System.err.println("[SERVER] Lỗi lưu item: " + e.getMessage());
+            // Không dừng, thử tạo phiên tiếp
+        }
+
+        boolean created = manager.createSession(auctionId, itemId, itemName, sellerId, startPrice, durationMinutes);
+        if (!created) {
+            return "LOI|Ma phien da ton tai: " + auctionId;
+        }
+        manager.startSession(auctionId);
+        return "CREATE_AUCTION_SUCCESS|" + auctionId;
+    }
+
+    /**
+     * Xử lý tạo vật phẩm đấu giá.
+     * Định dạng: CREATE_ITEM|itemId|itemName|description|initPrice|category
+     */
+    private String processCreateItem(String[] parts) {
+        if (parts.length != 6) {
+            return "LOI|Dinh dang: CREATE_ITEM|itemId|itemName|description|initPrice|category";
+        }
+        try {
+            String itemId   = parts[1];
+            String name     = parts[2];
+            String desc     = parts[3];
+            double price    = Double.parseDouble(parts[4]);
+            String category = parts[5];
+            ItemDAO itemDAO = new ItemDAO();
+            Item item = new Electronics(itemId, name, desc, price, category, "", "", "");
+            itemDAO.saveItem(item);
+            return "CREATE_ITEM_SUCCESS|" + itemId;
+        } catch (Exception e) {
+            return "LOI|Loi tao vat pham: " + e.getMessage();
+        }
+    }
+
     private String buildListResponse(AuctionManager manager) {
         StringBuilder sb = new StringBuilder("DANH_SACH");
         for (AuctionSession s : manager.getAllSessions()) {
@@ -185,8 +258,20 @@ public class ClientHandler implements Runnable {
         if (session == null) {
             return "LOI|Khong tim thay phien dau gia";
         }
+        
+        String itemName = session.getItemID();
+        try {
+            ItemDAO itemDAO = new ItemDAO();
+            Item item = itemDAO.findById(session.getItemID());
+            if (item != null) {
+                itemName = item.getName();
+            }
+        } catch (Exception e) {
+            // Nếu lỗi DB, vẫn dùng ID
+        }
+
         return "PHIEN|id=" + session.getAuctionID()
-                + "|vat_pham=" + session.getItemID()
+                + "|vat_pham=" + itemName
                 + "|gia_hien_tai=" + session.getCurrentHighestBid()
                 + "|nguoi_dan_dau=" + (session.getWinnerID() == null ? "" : session.getWinnerID())
                 + "|trang_thai=" + session.getStatus()
@@ -195,6 +280,8 @@ public class ClientHandler implements Runnable {
 
     private void cleanup() {
         server.removeClient(this);
+        // Lưu tất cả sessions khi client disconnect để tránh mất dữ liệu
+        AuctionManager.getInstance().persistAllSessions();
         try {
             socket.close();
         } catch (IOException ignored) {}

@@ -1,25 +1,19 @@
 package com.auction.client.controller;
 
 import com.auction.client.service.NetworkClient;
+import com.auction.client.viewmodel.AuctionRow;
 import com.auction.common.models.User;
 import com.auction.common.models.UserManager;
 import com.auction.common.util.SceneUtil;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.VBox;
-
-import java.util.ArrayList;
-import java.util.List;
+import javafx.scene.control.TableView;
 
 public class MainAuctionController {
 
@@ -27,65 +21,128 @@ public class MainAuctionController {
     private Label lblWelcome;
 
     @FXML
-    private VBox auctionCardsContainer;
-
-    @FXML
-    private Label lblEmptyAuctions;
+    private TableView<AuctionRow> auctionTable;
 
     @FXML
     private Button btnCreateAuction;
 
     @FXML
-    private Button btnJoinAuction;
+    private Button btnRefresh;
 
-    private final List<AuctionViewModel> auctionList = new ArrayList<>();
-    private AuctionViewModel selectedAuction;
-    private HBox selectedCardNode;
+    private final ObservableList<AuctionRow> auctionData = FXCollections.observableArrayList();
+    private AuctionRow selectedAuction;
 
     @FXML
     public void initialize() {
-        User currentUser = UserManager.getInstance().getCurrentUser();
-        if (currentUser != null) {
-            lblWelcome.setText("Xin chào, " + currentUser.getFullName() + " | Vai trò: " + currentUser.getClass().getSimpleName());
-            
-            // Nếu không phải là Seller thì ẩn nút Tạo phiên đấu giá
-            if (!currentUser.getClass().getSimpleName().equalsIgnoreCase("Seller")) {
-                btnCreateAuction.setVisible(false);
-                btnCreateAuction.setManaged(false);
+        try {
+            User currentUser = UserManager.getInstance().getCurrentUser();
+            if (currentUser != null) {
+                lblWelcome.setText("Xin chào, " + currentUser.getFullName() + " | Vai trò: " + currentUser.getClass().getSimpleName());
+                
+                // Nếu không phải là Seller thì ẩn nút Tạo phiên đấu giá
+                if (!currentUser.getClass().getSimpleName().equalsIgnoreCase("Seller")) {
+                    btnCreateAuction.setVisible(false);
+                    btnCreateAuction.setManaged(false);
+                }
             }
-        }
 
-        loadAuctionData();
+            // Setup TableView
+            auctionTable.setItems(auctionData);
+            auctionTable.setOnMouseClicked(e -> {
+                selectedAuction = auctionTable.getSelectionModel().getSelectedItem();
+            });
+
+            // Load data trong background thread để không block UI
+            loadAuctionDataAsync();
+        } catch (Exception e) {
+            System.err.println("[ERROR] Initialize lỗi: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void loadAuctionDataAsync() {
+        new Thread(() -> {
+            try {
+                loadAuctionData();
+            } catch (Exception e) {
+                System.err.println("[ERROR] Load auction data lỗi: " + e.getMessage());
+                e.printStackTrace();
+                Platform.runLater(() -> {
+                    showAlert(Alert.AlertType.WARNING, "Lỗi tải dữ liệu", "Không thể tải danh sách phiên: " + e.getMessage());
+                });
+            }
+        }).start();
     }
 
     private void loadAuctionData() {
-        auctionList.clear();
+        auctionData.clear();
         String response = NetworkClient.getInstance().sendRequest("LIST");
         if (response == null || !response.startsWith("DANH_SACH")) {
-            showAlert(Alert.AlertType.WARNING, "Không tải được dữ liệu", "Không thể lấy danh sách phiên từ máy chủ.");
+            Platform.runLater(() -> {
+                showAlert(Alert.AlertType.WARNING, "Không tải được dữ liệu", "Không thể lấy danh sách phiên từ máy chủ.");
+            });
             return;
         }
+
         String[] entries = response.split("\\|");
+        int stt = 1;
         for (int i = 1; i < entries.length; i++) {
             if ("trong".equalsIgnoreCase(entries[i])) {
-                renderAuctionCards();
                 return;
             }
             String[] parts = entries[i].split(":");
             if (parts.length != 3) {
                 continue;
             }
-            auctionList.add(new AuctionViewModel(parts[0], "Phiên " + parts[0], formatPrice(parts[1]), parts[2]));
+
+            String auctionId = parts[0];
+            double currentPrice = parseDouble(parts[1]);
+            String status = parts[2];
+
+            // Lấy thêm thông tin chi tiết từ server
+            String detailResponse = NetworkClient.getInstance().sendRequest("GET_SESSION|" + auctionId);
+            String itemName = auctionId;
+            int participantCount = 0;
+            String timeRemaining = "00:00:00";
+
+            if (detailResponse != null && detailResponse.startsWith("PHIEN|")) {
+                String[] details = detailResponse.split("\\|");
+                for (int j = 1; j < details.length; j++) {
+                    String[] kv = details[j].split("=", 2);
+                    if (kv.length == 2) {
+                        if ("vat_pham".equals(kv[0])) itemName = kv[1];
+                        else if ("end_time".equals(kv[0])) timeRemaining = calculateTimeRemaining(kv[1]);
+                    }
+                }
+            }
+
+            AuctionRow row = new AuctionRow(stt++, auctionId, itemName, currentPrice, participantCount, status, timeRemaining);
+            auctionData.add(row);
         }
-        renderAuctionCards();
     }
 
-    private String formatPrice(String rawPrice) {
+    private double parseDouble(String value) {
         try {
-            double value = Double.parseDouble(rawPrice);
-            return String.format("%,.0f", value);
-        } catch (NumberFormatException ex) {
-            return rawPrice;
+            return Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
+    }
+
+    private String calculateTimeRemaining(String endTimeStr) {
+        try {
+            java.time.LocalDateTime endTime = java.time.LocalDateTime.parse(endTimeStr);
+            java.time.Duration remaining = java.time.Duration.between(java.time.LocalDateTime.now(), endTime);
+            long seconds = remaining.getSeconds();
+            if (seconds <= 0) {
+                return "Đã kết thúc";
+            }
+            long hours = seconds / 3600;
+            long minutes = (seconds % 3600) / 60;
+            long secs = seconds % 60;
+            return String.format("%02d:%02d:%02d", hours, minutes, secs);
+        } catch (Exception e) {
+            return "00:00:00";
         }
     }
 
@@ -102,13 +159,17 @@ public class MainAuctionController {
 
     @FXML
     void handleJoinAuction(ActionEvent event) {
-        AuctionViewModel selected = selectedAuction;
-        if (selected != null) {
-            AuctionRoomController.setSelectedAuction(selected.getId(), selected.getItem());
-            SceneUtil.changeScene(event, "AuctionRoom.fxml", "Phòng đấu giá: " + selected.getItem());
+        if (selectedAuction != null) {
+            AuctionRoomController.setSelectedAuction(selectedAuction.getAuctionId(), selectedAuction.getItemName());
+            SceneUtil.changeScene(event, "AuctionRoom.fxml", "Phòng đấu giá: " + selectedAuction.getItemName());
         } else {
             showAlert(Alert.AlertType.INFORMATION, "Chưa chọn phiên", "Vui lòng chọn một phiên đấu giá để tham gia!");
         }
+    }
+
+    @FXML
+    void handleRefresh(ActionEvent event) {
+        loadAuctionDataAsync();
     }
 
     private void showAlert(Alert.AlertType type, String title, String content) {
@@ -118,145 +179,6 @@ public class MainAuctionController {
         alert.setContentText(content);
         alert.showAndWait();
     }
-
-    private void renderAuctionCards() {
-        auctionCardsContainer.getChildren().clear();
-        if (auctionList.isEmpty()) {
-            lblEmptyAuctions.setVisible(true);
-            lblEmptyAuctions.setManaged(true);
-            auctionCardsContainer.getChildren().add(lblEmptyAuctions);
-            return;
-        }
-        lblEmptyAuctions.setVisible(false);
-        lblEmptyAuctions.setManaged(false);
-
-        for (AuctionViewModel auction : auctionList) {
-            HBox card = createAuctionCard(auction);
-            auctionCardsContainer.getChildren().add(card);
-        }
-    }
-
-    private HBox createAuctionCard(AuctionViewModel auction) {
-        Label idTag = new Label("#" + auction.getId());
-        idTag.getStyleClass().add("card-id");
-
-        Label name = new Label(auction.getItem());
-        name.getStyleClass().add("card-title");
-
-        Label price = new Label("Giá cao nhất: " + auction.getPrice());
-        price.getStyleClass().add("card-sub");
-
-        VBox left = new VBox(4, idTag, name, price);
-        left.setAlignment(Pos.CENTER_LEFT);
-
-        Label statusBadge = new Label(auction.getStatus());
-        statusBadge.getStyleClass().add("status-badge");
-        String status = auction.getStatus().toUpperCase();
-        if ("RUNNING".equals(status) || "EXTENDED".equals(status)) {
-            statusBadge.getStyleClass().add("status-running");
-        } else if ("OPEN".equals(status)) {
-            statusBadge.getStyleClass().add("status-open");
-        } else {
-            statusBadge.getStyleClass().add("status-finished");
-        }
-
-        Button joinBtn = new Button("Tham gia");
-        joinBtn.getStyleClass().add("btn-primary");
-        joinBtn.setDisable("FINISHED".equalsIgnoreCase(auction.getStatus()));
-
-        Button detailBtn = new Button("Chi tiết");
-        detailBtn.getStyleClass().add("btn-secondary");
-
-        final HBox[] cardRef = new HBox[1];
-        joinBtn.setOnAction(e -> {
-            selectedAuction = auction;
-            updateSelectedCardStyle(cardRef[0]);
-        });
-        detailBtn.setOnAction(e -> {
-            selectedAuction = auction;
-            updateSelectedCardStyle(cardRef[0]);
-            showAuctionDetails(auction.getId(), auction.getItem());
-        });
-
-        HBox actions = new HBox(8, detailBtn, joinBtn);
-        actions.setAlignment(Pos.CENTER_RIGHT);
-
-        VBox right = new VBox(8, statusBadge, actions);
-        right.setAlignment(Pos.CENTER_RIGHT);
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        HBox card = new HBox(12, left, spacer, right);
-        card.setAlignment(Pos.CENTER_LEFT);
-        card.setPadding(new Insets(12));
-        card.getStyleClass().add("auction-card");
-        card.setOnMouseClicked(e -> {
-            selectedAuction = auction;
-            updateSelectedCardStyle(card);
-        });
-        cardRef[0] = card;
-        return card;
-    }
-
-    private void updateSelectedCardStyle(HBox newSelectedCard) {
-        if (selectedCardNode != null) {
-            selectedCardNode.getStyleClass().remove("auction-card-selected");
-        }
-        selectedCardNode = newSelectedCard;
-        if (!selectedCardNode.getStyleClass().contains("auction-card-selected")) {
-            selectedCardNode.getStyleClass().add("auction-card-selected");
-        }
-    }
-
-    private void showAuctionDetails(String auctionId, String auctionItem) {
-        String response = com.auction.client.service.NetworkClient.getInstance().sendRequest("GET_SESSION|" + auctionId);
-        if (response.startsWith("PHIEN|")) {
-            String[] parts = response.split("\\|");
-            String currentPrice = "?";
-            String currentWinner = "Chưa có";
-            String status = "?";
-            String endTime = "?";
-            for (int i = 1; i < parts.length; i++) {
-                String[] kv = parts[i].split("=", 2);
-                if (kv.length != 2) continue;
-                switch (kv[0]) {
-                    case "gia_hien_tai": currentPrice = kv[1]; break;
-                    case "nguoi_dan_dau": if (!kv[1].isBlank()) currentWinner = kv[1]; break;
-                    case "trang_thai": status = kv[1]; break;
-                    case "end_time": endTime = kv[1]; break;
-                }
-            }
-            showAlert(Alert.AlertType.INFORMATION, "Thông tin phiên",
-                    "Mã phiên: " + auctionId
-                            + "\nTên phiên: " + auctionItem
-                            + "\nGiá hiện tại: " + currentPrice
-                            + "\nNgười dẫn đầu: " + currentWinner
-                            + "\nTrạng thái: " + status
-                            + "\nThời gian kết thúc: " + endTime);
-        } else {
-            String message = response.contains("|") ? response.split("\\|", 2)[1] : "Không lấy được thông tin phiên.";
-            showAlert(Alert.AlertType.ERROR, "Lỗi", message);
-        }
-    }
-
-    // Lớp ViewModel nội bộ dùng để hiển thị dữ liệu phiên đấu giá
-    public static class AuctionViewModel {
-        private final String id;
-        private final String item;
-        private final String price;
-        private final String status;
-
-        public AuctionViewModel(String id, String item, String price, String status) {
-            this.id = id;
-            this.item = item;
-            this.price = price;
-            this.status = status;
-        }
-        
-        public String getId() { return id; }
-        public String getItem() { return item; }
-        public String getPrice() { return price; }
-        public String getStatus() { return status; }
-    }
 }
+
+

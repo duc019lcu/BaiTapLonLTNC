@@ -163,4 +163,17 @@ public class AuctionManager {
             e.printStackTrace();
         }
     }
+
+    // Lưu tất cả sessions vào database (dùng khi exit hoặc crash)
+    public void persistAllSessions() {
+        try {
+            for (AuctionSession session : sessions.values()) {
+                saveSessionToDatabase(session);
+            }
+            System.out.println("[HỆ THỐNG] ✓ Đã lưu " + sessions.size() + " phiên vào database");
+        } catch (Exception e) {
+            System.err.println("[CẢNH BÁO] Lỗi lưu tất cả phiên: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 }
