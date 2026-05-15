@@ -1,177 +1,367 @@
 package com.bai_tap_lon.controller;
-
-//Nếu file FXML là bản vẽ ngôi nhà và các công tắc điện, thì file Controller chính là hệ thống dây điện và bộ não nằm ẩn bên trong bức tường. Nút bấm trên tường (FXML) chỉ vô tri vô giác nếu không có dây điện (Controller) nối vào nó để ra lệnh "Sáng đèn!".
+//File này định nghĩa các tham chiếu, phương thức để gán vào các ô hợp lí trong file giao  diện fxml.
 import com.bai_tap_lon.dao.ItemDAO;
 import com.bai_tap_lon.factory.ItemFactory;
 import com.bai_tap_lon.model.Item;
+import javafx.animation.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.VBox;
+import javafx.util.Duration;
+import javafx.scene.control.TableCell;
+
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.ResourceBundle;
 
+
 public class SellerController implements Initializable {
-    //Có cái fx:id="txtName" bên file FXML, khi bạn viết @FXML private TextField txtName; bên Java, chương trình sẽ tự động lấy cái ô nhập liệu trên màn hình gắn chặt vào biến txtName này.Từ lúc này, bên Java chỉ cần gọi txtName.getText() là lôi được chữ mà người dùng vừa gõ trên màn hình ra.
-    // Các trường nhập liệu chung
+
+    // ─── FXML bindings ───────────────────────────────────────────────
     @FXML private TextField txtId, txtName, txtInitPrice;
-    @FXML private TextArea txtDescription;
+    @FXML private TextArea  txtDescription;
     @FXML private ComboBox<String> cbCategory;
+    @FXML private VBox paneDynamicFields;
 
-    // Các vùng nhập liệu đặc thù
-    @FXML private VBox vboxElectronics, vboxArt, vboxVehicle;
+    @FXML private VBox vboxElectronics, vboxArt, vboxVehicle, vboxFashion, vboxFurniture;
     @FXML private TextField txtElec1, txtElec2, txtElec3, txtElec4;
-    @FXML private TextField txtArt1, txtArt2, txtArt3;
-    @FXML private TextField txtVeh1, txtVeh2, txtVeh3;
+    @FXML private TextField txtArt1,  txtArt2,  txtArt3;
+    @FXML private TextField txtVeh1,  txtVeh2,  txtVeh3;
+    @FXML private TextField txtFas1,  txtFas2,  txtFas3;
+    @FXML private TextField txtFur1,  txtFur2;
 
-    // Bảng hiển thị
-    @FXML private TableView<Item> tableItems;
+    @FXML private TableView<Item>           tableItems;
     @FXML private TableColumn<Item, String> colId, colName, colCategory, colDesc;
     @FXML private TableColumn<Item, Double> colPrice;
+    @FXML private Button btnAdd, btnDelete;
+    @FXML private VBox   formPanel;
+    @FXML private Label  lblCount;
 
-    //Ý nghĩa: Observable có nghĩa là "có thể quan sát được". Đây là một cái danh sách biết tự động báo cáo. ngay khoảnh khắc bạn nhét thêm 1 món hàng vào nó (itemList.add(newItem)), nó sẽ lập tức "hét" lên: "Ê giao diện, tao có dữ liệu mới nè, vẽ lại bảng ngay!".
-    private ObservableList<Item> itemList = FXCollections.observableArrayList();
+    private final ObservableList<Item> itemList = FXCollections.observableArrayList();
 
-    //Khi bạn mở app lên, trước khi cái cửa sổ kịp hiện ra cho bạn nhìn thấy, Java sẽ chạy lén hàm này một lần duy nhất.
+    // ─── Initialize ──────────────────────────────────────────────────
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // 1. Thiết lập các cột cho TableView
+        setupTable();
+        setupComboBox();
+        setupButtonEffects();
+        playEntranceAnimation();
+    }
+
+    // ─── Table ───────────────────────────────────────────────────────
+    private void setupTable() {
+        // Định dạng giá: 23000000 → 23,000,000
+        colPrice.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(Double price, boolean empty) {
+                super.updateItem(price, empty);
+                if (empty || price == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("%,.0f", price));
+                }
+            }
+        });
         colId.setCellValueFactory(new PropertyValueFactory<>("id"));
         colName.setCellValueFactory(new PropertyValueFactory<>("name"));
         colCategory.setCellValueFactory(new PropertyValueFactory<>("category"));
         colPrice.setCellValueFactory(new PropertyValueFactory<>("initPrice"));
         colDesc.setCellValueFactory(new PropertyValueFactory<>("description"));
 
-        // 2. Load dữ liệu từ file CSV bằng DAO
         itemList.addAll(ItemDAO.loadItems());
         tableItems.setItems(itemList);
+        updateItemCountBadge();
+    }
 
-        // 3. Nạp danh sách loại hàng
+    private void setupComboBox() {
         cbCategory.getItems().addAll("ELECTRONICS", "ART", "VEHICLE", "FASHION", "FURNITURE");
     }
 
-    //Đây là những hàm sẽ được gắn với cái "cò súng" onAction="#tên_hàm" bên FXML. Người dùng bấm nút nào, thợ đó chạy ra làm việc.
-    @FXML
-    public void handleCategoryChange() {
-        String selected = cbCategory.getValue();
-        // Ẩn tất cả trước
-        vboxElectronics.setVisible(false); vboxElectronics.setManaged(false);
-        vboxArt.setVisible(false); vboxArt.setManaged(false);
-        vboxVehicle.setVisible(false); vboxVehicle.setManaged(false);
+    // ─── Entrance: stagger fade + slide ──────────────────────────────
+    private void playEntranceAnimation() {
+        List<Node> targets = new ArrayList<>();
+        targets.add(formPanel);
+        targets.add(tableItems);
 
-        if (selected == null) return;
+        for (int i = 0; i < targets.size(); i++) {
+            Node node = targets.get(i);
+            if (node == null) continue;
 
-        // Hiện vùng tương ứng
-        switch (selected) {
-            case "ELECTRONICS": vboxElectronics.setVisible(true); vboxElectronics.setManaged(true); break;
-            case "ART": vboxArt.setVisible(true); vboxArt.setManaged(true); break;
-            case "VEHICLE": vboxVehicle.setVisible(true); vboxVehicle.setManaged(true); break;
+            node.setOpacity(0);
+            node.setTranslateY(28);
+            double delayMs = 80 + i * 130.0;
+
+            FadeTransition fade = new FadeTransition(Duration.millis(560), node);
+            fade.setFromValue(0.0);
+            fade.setToValue(1.0);
+            fade.setInterpolator(Interpolator.EASE_OUT);
+            fade.setDelay(Duration.millis(delayMs));
+
+            TranslateTransition slide = new TranslateTransition(Duration.millis(600), node);
+            slide.setFromY(28);
+            slide.setToY(0);
+            slide.setInterpolator(Interpolator.EASE_OUT);
+            slide.setDelay(Duration.millis(delayMs));
+
+            fade.play();
+            slide.play();
         }
     }
 
-    //Chạy khi bấm nút THÊM MỚI. Quá trình làm việc của nó chuẩn y như dây chuyền nhà máy:
-    //
-    //Gom nguyên liệu: Đi thu thập chữ từ các ô nhập liệu (txtId.getText(), txtName.getText()). Ép giá tiền từ chữ thành số (Double.parseDouble).
-    //
-    //Quăng vào máy tạo nặn: Đưa đống nguyên liệu đó cho máy Factory (ItemFactory.createItem(...)). Nhờ máy này nặn ra đúng hình thù một cái Máy tính (Electronics) hay Bức tranh (Art).
+    // ─── Button effects ───────────────────────────────────────────────
+    private void setupButtonEffects() {
+        setupSpringButton(btnAdd);
+        setupSpringButton(btnDelete);
+    }
+
+    private void setupSpringButton(Button button) {
+        if (button == null) return;
+
+        ScaleTransition hoverIn = new ScaleTransition(Duration.millis(220), button);
+        hoverIn.setToX(1.07); hoverIn.setToY(1.07);
+        hoverIn.setInterpolator(Interpolator.EASE_OUT);
+
+        ScaleTransition hoverOut = new ScaleTransition(Duration.millis(200), button);
+        hoverOut.setToX(1.0); hoverOut.setToY(1.0);
+        hoverOut.setInterpolator(Interpolator.EASE_OUT);
+
+        button.setOnMouseEntered(e -> { hoverOut.stop(); hoverIn.playFromStart(); });
+        button.setOnMouseExited(e  -> { hoverIn.stop();  hoverOut.playFromStart(); });
+
+        // Press: scale down
+        button.setOnMousePressed(e -> {
+            hoverIn.stop(); hoverOut.stop();
+            ScaleTransition press = new ScaleTransition(Duration.millis(90), button);
+            press.setToX(0.93); press.setToY(0.93);
+            press.setInterpolator(Interpolator.EASE_IN);
+            press.play();
+        });
+
+        // Release: bounce back
+        button.setOnMouseReleased(e -> {
+            ScaleTransition release = new ScaleTransition(Duration.millis(400), button);
+            release.setToX(1.0); release.setToY(1.0);
+            release.setInterpolator(Interpolator.EASE_BOTH);
+            release.play();
+        });
+    }
+
+    // ─── Category change ──────────────────────────────────────────────
+    @FXML
+    public void handleCategoryChange() {
+        String selected = cbCategory.getValue();
+
+        FadeTransition fadeOut = new FadeTransition(Duration.millis(130), paneDynamicFields);
+        fadeOut.setFromValue(paneDynamicFields.getOpacity());
+        fadeOut.setToValue(0.0);
+        fadeOut.setInterpolator(Interpolator.EASE_IN);
+
+        TranslateTransition slideOut = new TranslateTransition(Duration.millis(130), paneDynamicFields);
+        slideOut.setToY(-8);
+        slideOut.setInterpolator(Interpolator.EASE_IN);
+
+        ParallelTransition exitAnim = new ParallelTransition(fadeOut, slideOut);
+        exitAnim.setOnFinished(e -> {
+            hideAll();
+
+            switch (selected != null ? selected : "") {
+                case "ELECTRONICS" -> showSubPanel(vboxElectronics);
+                case "ART"         -> showSubPanel(vboxArt);
+                case "VEHICLE"     -> showSubPanel(vboxVehicle);
+                case "FASHION"     -> showSubPanel(vboxFashion);
+                case "FURNITURE"   -> showSubPanel(vboxFurniture);
+            }
+
+            paneDynamicFields.setTranslateY(14);
+
+            FadeTransition fadeIn = new FadeTransition(Duration.millis(350), paneDynamicFields);
+            fadeIn.setFromValue(0.0);
+            fadeIn.setToValue(1.0);
+            fadeIn.setInterpolator(Interpolator.EASE_OUT);
+
+            TranslateTransition slideIn = new TranslateTransition(Duration.millis(380), paneDynamicFields);
+            slideIn.setFromY(14);
+            slideIn.setToY(0);
+            slideIn.setInterpolator(Interpolator.EASE_OUT);
+
+            new ParallelTransition(fadeIn, slideIn).play();
+        });
+
+        exitAnim.play();
+    }
+
+    private void hideAll() {
+        for (VBox v : List.of(vboxElectronics, vboxArt, vboxVehicle, vboxFashion, vboxFurniture)) {
+            v.setVisible(false);
+            v.setManaged(false);
+        }
+    }
+
+    private void showSubPanel(VBox panel) {
+        panel.setVisible(true);
+        panel.setManaged(true);
+    }
+
+    // ─── Handle Add ──────────────────────────────────────────────────
     @FXML
     public void handleAdd() {
         try {
             String type = cbCategory.getValue();
-
-            // 1. Kiểm tra lỗi chưa chọn danh mục
             if (type == null || type.trim().isEmpty()) {
-                showAlert("Lỗi nhập liệu", "Vui lòng chọn loại hàng hóa từ danh sách.");
-                return; // Dừng lại, không chạy tiếp xuống dưới
+                showError("Lỗi nhập liệu", "Vui lòng chọn loại hàng hóa.");
+                return;
             }
 
-            // Lấy dữ liệu và loại bỏ khoảng trắng thừa ở hai đầu
-            String id = txtId.getText().trim();
-            String name = txtName.getText().trim();
-            String desc = txtDescription.getText().trim();
+            String id        = txtId.getText().trim().replace(",", "-");
+            String name      = txtName.getText().trim().replace(",", "-");
+            String desc      = txtDescription.getText().trim().replace(",", "-");
             String priceText = txtInitPrice.getText().trim();
 
-            // 2. Kiểm tra lỗi bỏ trống các trường bắt buộc
             if (id.isEmpty() || name.isEmpty() || priceText.isEmpty()) {
-                showAlert("Lỗi nhập liệu", "Vui lòng nhập đầy đủ ID, Tên sản phẩm và Giá khởi điểm.");
+                showError("Lỗi nhập liệu", "Vui lòng nhập đầy đủ ID, Tên và Giá khởi điểm.");
                 return;
             }
 
-            // 3. Ép kiểu và kiểm tra logic số âm
             double price = Double.parseDouble(priceText);
             if (price < 0) {
-                showAlert("Lỗi logic", "Giá khởi điểm không được là số âm.");
+                showError("Lỗi logic", "Giá khởi điểm không được âm.");
                 return;
             }
 
-            // 4. Kiểm tra lỗi trùng lặp ID (Ngăn chặn tạo 2 sản phẩm trùng ID)
-            for (Item existingItem : itemList) {
-                if (existingItem.getId().equals(id)) {
-                    showAlert("Lỗi trùng lặp", "Mã ID này đã tồn tại. Vui lòng nhập ID khác.");
+            for (Item existing : itemList) {
+                if (existing.getId().equals(id)) {
+                    showError("Lỗi trùng lặp", "Mã ID \"" + id + "\" đã tồn tại.");
+                    shakeNode(txtId);
                     return;
                 }
             }
 
-            Item newItem = null;
-
-            // Gọi Factory dựa trên loại hàng
-            if ("ELECTRONICS".equals(type)) {
-                newItem = ItemFactory.createItem(type, id, name, desc, price,
-                        txtElec1.getText(), txtElec2.getText(), txtElec3.getText(), txtElec4.getText());
-            } else if ("ART".equals(type)) {
-                newItem = ItemFactory.createItem(type, id, name, desc, price,
-                        txtArt1.getText(), txtArt2.getText(), txtArt3.getText());
-            } else if ("VEHICLE".equals(type)) {
-                newItem = ItemFactory.createItem(type, id, name, desc, price,
-                        txtVeh1.getText(), txtVeh2.getText(), txtVeh3.getText());
-            }
+            Item newItem = buildItem(type, id, name, desc, price);
 
             if (newItem != null) {
                 itemList.add(newItem);
-                // Lưu lại toàn bộ danh sách vào CSV thông qua DAO
                 ItemDAO.saveItems(new ArrayList<>(itemList));
+                updateItemCountBadge();
                 clearFields();
-
-                // Hiển thị thông báo thành công
-                Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
-                successAlert.setTitle("Thành công");
-                successAlert.setHeaderText(null);
-                successAlert.setContentText("Đã thêm sản phẩm thành công!");
-                successAlert.showAndWait();
+                playSuccessPulse(btnAdd);
+                showSuccess("Thêm thành công!", "Sản phẩm \"" + name + "\" đã được thêm vào kho.");
             }
 
         } catch (NumberFormatException e) {
-            // 5. Bắt lỗi nhập chữ vào ô chỉ cho phép nhập số (Giá tiền, Năm sáng tác, Số dặm)
-            showAlert("Sai định dạng số", "Giá khởi điểm hoặc các thông số kỹ thuật (Năm sáng tác, Số dặm) phải là số hợp lệ.");
+            showError("Sai định dạng số", "Giá và thông số kỹ thuật phải là số hợp lệ.");
+            shakeNode(txtInitPrice);
         } catch (Exception e) {
-            // Bắt các lỗi hệ thống không lường trước được
-            showAlert("Lỗi hệ thống", "Đã xảy ra sự cố: " + e.getMessage());
+            showError("Lỗi hệ thống", "Đã xảy ra lỗi: " + e.getMessage());
         }
     }
 
+    private Item buildItem(String type, String id, String name, String desc, double price) {
+        return switch (type) {
+            case "ELECTRONICS" -> ItemFactory.createItem(type, id, name, desc, price,
+                    txtElec1.getText(), txtElec2.getText(), txtElec3.getText(), txtElec4.getText());
+            case "ART" -> {
+                String yr = txtArt2.getText().trim().isEmpty() ? "0" : txtArt2.getText().trim();
+                yield ItemFactory.createItem(type, id, name, desc, price,
+                        txtArt1.getText(), yr, txtArt3.getText());
+            }
+            case "VEHICLE" -> {
+                String mi = txtVeh3.getText().trim().isEmpty() ? "0" : txtVeh3.getText().trim();
+                yield ItemFactory.createItem(type, id, name, desc, price,
+                        txtVeh1.getText(), txtVeh2.getText(), mi);
+            }
+            case "FASHION"   -> ItemFactory.createItem(type, id, name, desc, price,
+                    txtFas1.getText(), txtFas2.getText(), txtFas3.getText());
+            case "FURNITURE" -> ItemFactory.createItem(type, id, name, desc, price,
+                    txtFur1.getText(), txtFur2.getText());
+            default -> null;
+        };
+    }
+
+    // ─── Handle Delete ───────────────────────────────────────────────
     @FXML
     public void handleDelete() {
         Item selected = tableItems.getSelectionModel().getSelectedItem();
         if (selected != null) {
             itemList.remove(selected);
             ItemDAO.saveItems(new ArrayList<>(itemList));
+            updateItemCountBadge();
         } else {
-            showAlert("Thông báo", "Vui lòng chọn một dòng để xóa.");
+            showError("Thông báo", "Vui lòng chọn một mặt hàng để xoá.");
+            shakeNode(tableItems);
+        }
+    }
+
+    // ─── Micro-animations ────────────────────────────────────────────
+
+    private void shakeNode(Node node) {
+        TranslateTransition shake = new TranslateTransition(Duration.millis(55), node);
+        shake.setFromX(0);
+        shake.setToX(7);
+        shake.setCycleCount(6);
+        shake.setAutoReverse(true);
+        shake.setInterpolator(Interpolator.EASE_BOTH);
+        shake.setOnFinished(e -> node.setTranslateX(0));
+        shake.play();
+    }
+
+    private void playSuccessPulse(Button button) {
+        ScaleTransition pulse = new ScaleTransition(Duration.millis(180), button);
+        pulse.setToX(1.12); pulse.setToY(1.12);
+        pulse.setInterpolator(Interpolator.EASE_OUT);
+
+        ScaleTransition settle = new ScaleTransition(Duration.millis(320), button);
+        settle.setToX(1.0); settle.setToY(1.0);
+        settle.setInterpolator(Interpolator.EASE_BOTH);
+
+        pulse.setOnFinished(e -> settle.play());
+        pulse.play();
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────
+    private void updateItemCountBadge() {
+        if (lblCount != null) {
+            lblCount.setText(itemList.size() + " SẢN PHẨM");
         }
     }
 
     private void clearFields() {
         txtId.clear(); txtName.clear(); txtDescription.clear(); txtInitPrice.clear();
+        txtElec1.clear(); txtElec2.clear(); txtElec3.clear(); txtElec4.clear();
+        txtArt1.clear();  txtArt2.clear();  txtArt3.clear();
+        txtVeh1.clear();  txtVeh2.clear();  txtVeh3.clear();
+        txtFas1.clear();  txtFas2.clear();  txtFas3.clear();
+        txtFur1.clear();  txtFur2.clear();
     }
 
-    private void showAlert(String title, String content) {
+    private void showError(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle(title);
+        alert.setHeaderText(null);
         alert.setContentText(content);
+        styleAlert(alert);
         alert.showAndWait();
+    }
+
+    private void showSuccess(String title, String content) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        styleAlert(alert);
+        alert.showAndWait();
+    }
+
+    private void styleAlert(Alert alert) {
+        try {
+            alert.getDialogPane().getScene().getRoot()
+                    .getStylesheets()
+                    .add(getClass().getResource("/styles/style.css").toExternalForm());
+        } catch (Exception ignored) {}
     }
 }
