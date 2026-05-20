@@ -94,95 +94,74 @@ public class AuctionServer {
     }
 
     private void initializeDatabase() {
-        try {
-            Connection conn = DatabaseUtil.getInstance().getConnection();
-            
-            // Lưu ý: Câu lệnh USE không được thực thi trực tiếp, phải tách thành connection riêng
-            Statement stmt = conn.createStatement();
-            
-            // Tạo database
-            stmt.executeUpdate("CREATE DATABASE IF NOT EXISTS auction_system");
-            
-            // Đóng statement cũ
-            stmt.close();
-            
-            // Tạo connection mới với database auction_system
-            String dbUrl = "jdbc:mysql://localhost:3306/auction_system";
-            String user = "root";  // Từ config
-            String pass = "";      // Từ config
-            
-            try {
-                // Lấy từ properties
-                java.util.Properties props = new java.util.Properties();
-                java.io.InputStream in = getClass().getClassLoader().getResourceAsStream("config/application.properties");
-                if (in != null) {
-                    props.load(in);
-                    String fullUrl = props.getProperty("db.url");
-                    user = props.getProperty("db.username");
-                    pass = props.getProperty("db.password");
-                    
-                    if (fullUrl.contains("auction_system")) {
-                        dbUrl = fullUrl;
-                    } else {
-                        dbUrl = fullUrl.replace(":3306/", ":3306/auction_system");
-                    }
-                }
-            } catch (Exception e) {
-                // Nếu không tìm được config, dùng mặc định
-                System.out.println("[CẢNH BÁO] Không tìm được config, dùng default");
-            }
-            
-            java.sql.Connection dbConn = java.sql.DriverManager.getConnection(dbUrl, user, pass);
-            Statement dbStmt = dbConn.createStatement();
-            
-            // Tạo bảng users
-            dbStmt.executeUpdate("CREATE TABLE IF NOT EXISTS users (" +
-                "id VARCHAR(50) PRIMARY KEY," +
-                "username VARCHAR(50) NOT NULL UNIQUE," +
-                "password VARCHAR(255) NOT NULL," +
-                "full_name VARCHAR(100) NOT NULL," +
-                "email VARCHAR(100) NOT NULL UNIQUE," +
-                "role VARCHAR(20) NOT NULL," +
-                "balance DOUBLE DEFAULT 0" +
-            ")");
+    try {
+        // 1. Kết nối thẳng vào MySQL server root (không chỉ định database nào cả)
+        // Lưu ý: Cậu cần đảm bảo username/pass ở đây khớp với máy cậu
+        String rootUrl = "jdbc:mysql://localhost:3306/?useSSL=false&serverTimezone=UTC";
+        Connection conn = java.sql.DriverManager.getConnection(rootUrl, "root", ""); 
+        
+        Statement stmt = conn.createStatement();
+        
+        // 2. Tạo database
+        stmt.executeUpdate("CREATE DATABASE IF NOT EXISTS auction_system");
+        System.out.println("[MÁY CHỦ] Đã kiểm tra/tạo database 'auction_system'");
+        stmt.close();
+        conn.close(); // Đóng kết nối root sau khi tạo xong
+        
+        // 3. Bây giờ mới dùng DatabaseUtil để kết nối vào auction_system và tạo bảng
+        Connection dbConn = DatabaseUtil.getInstance().getConnection(); // Lúc này DatabaseUtil sẽ kết nối vào db đã tồn tại
+        Statement dbStmt = dbConn.createStatement();
+        
+        // Tạo bảng (Code tạo bảng của cậu giữ nguyên ở đây)
+        dbStmt.executeUpdate("CREATE TABLE IF NOT EXISTS users (" +
+            "id VARCHAR(50) PRIMARY KEY," +
+            "username VARCHAR(50) NOT NULL UNIQUE," +
+            "password VARCHAR(255) NOT NULL," +
+            "full_name VARCHAR(100) NOT NULL," +
+            "email VARCHAR(100) NOT NULL UNIQUE," +
+            "role VARCHAR(20) NOT NULL," +
+            "balance DOUBLE DEFAULT 0" +
+        ")");
             
             // Tạo bảng items
-            dbStmt.executeUpdate("CREATE TABLE IF NOT EXISTS items (" +
-                "id VARCHAR(50) PRIMARY KEY," +
-                "name VARCHAR(100) NOT NULL," +
-                "description TEXT," +
-                "init_price DOUBLE NOT NULL," +
-                "category VARCHAR(50) NOT NULL" +
-            ")");
+        dbStmt.executeUpdate("CREATE TABLE IF NOT EXISTS items (" +
+            "id VARCHAR(50) PRIMARY KEY," +
+            "name VARCHAR(100) NOT NULL," +
+            "description TEXT," +
+            "init_price DOUBLE NOT NULL," +
+            "category VARCHAR(50) NOT NULL" +
+        ")");
+        
+        // Tạo bảng auction_sessions (không có FK để tránh lỗi khi seed/test)
+        dbStmt.executeUpdate("CREATE TABLE IF NOT EXISTS auction_sessions (" +
+            "auction_id VARCHAR(50) PRIMARY KEY," +
+            "item_id VARCHAR(50) NOT NULL," +
+            "seller_id VARCHAR(50) NOT NULL," +
+            "start_time DATETIME NOT NULL," +
+            "end_time DATETIME NOT NULL," +
+            "status VARCHAR(20) NOT NULL," +
+            "winner_id VARCHAR(50)," +
+            "current_highest_bid DOUBLE DEFAULT 0" +
+        ")");
+        
+        // Tạo bảng bid_transactions (không có FK để tránh lỗi)
+        dbStmt.executeUpdate("CREATE TABLE IF NOT EXISTS bid_transactions (" +
+            "id INT AUTO_INCREMENT PRIMARY KEY," +
+            "auction_id VARCHAR(50) NOT NULL," +
+            "bidder_id VARCHAR(50) NOT NULL," +
+            "bid_amount DOUBLE NOT NULL," +
+            "bid_time DATETIME NOT NULL" +
+        ")");
             
-            // Tạo bảng auction_sessions (không có FK để tránh lỗi khi seed/test)
-            dbStmt.executeUpdate("CREATE TABLE IF NOT EXISTS auction_sessions (" +
-                "auction_id VARCHAR(50) PRIMARY KEY," +
-                "item_id VARCHAR(50) NOT NULL," +
-                "seller_id VARCHAR(50) NOT NULL," +
-                "start_time DATETIME NOT NULL," +
-                "end_time DATETIME NOT NULL," +
-                "status VARCHAR(20) NOT NULL," +
-                "winner_id VARCHAR(50)," +
-                "current_highest_bid DOUBLE DEFAULT 0" +
-            ")");
-            
-            // Tạo bảng bid_transactions (không có FK để tránh lỗi)
-            dbStmt.executeUpdate("CREATE TABLE IF NOT EXISTS bid_transactions (" +
-                "id INT AUTO_INCREMENT PRIMARY KEY," +
-                "auction_id VARCHAR(50) NOT NULL," +
-                "bidder_id VARCHAR(50) NOT NULL," +
-                "bid_amount DOUBLE NOT NULL," +
-                "bid_time DATETIME NOT NULL" +
-            ")");
-            
-            dbStmt.close();
-            // KHÔNG đóng dbConn - giữ connection sống cho quá trình chạy app
-            System.out.println("[MÁY CHỦ] ✓ Database đã khởi tạo thành công");
-        } catch (Exception e) {
-            System.err.println("[MÁY CHỦ] ✗ Lỗi khởi tạo database: " + e.getMessage());
-            e.printStackTrace();
-        }
+// ... Các bảng items, auction_sessions, bid_transactions ...
+        
+        dbStmt.close();
+        System.out.println("[MÁY CHỦ] ✓ Database đã khởi tạo hoàn tất");
+        
+    } catch (Exception e) {
+        System.err.println("[MÁY CHỦ] ✗ Lỗi khởi tạo database: " + e.getMessage());
+        e.printStackTrace();
+    }
     }
 
     public static void main(String[] args) {
