@@ -15,7 +15,7 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          MYSQL_ROOT_PASSWORD: Kien2007zz@
           MYSQL_DATABASE: auction_system
         ports:
           - 3306:3306
@@ -43,14 +43,14 @@ jobs:
           # MySQL Connection configurations
           db.url=jdbc:mysql://127.0.0.1:3306/auction_system?allowPublicKeyRetrieval=true&useSSL=false
           db.username=root
-          db.password=${{ secrets.DB_PASSWORD }}
+          db.password=Kien2007zz@
           EOF
           echo "[CI] application.properties:"
           cat src/main/resources/config/application.properties
 
       - name: Init database schema
         env:
-          MYSQL_PWD: ${{ secrets.DB_PASSWORD }}
+          MYSQL_PWD: Kien2007zz@
         run: |
           mysql -h 127.0.0.1 -u root auction_system << 'SQL'
           CREATE TABLE IF NOT EXISTS users (

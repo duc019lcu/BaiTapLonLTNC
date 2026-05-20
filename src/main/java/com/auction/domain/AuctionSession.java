@@ -134,7 +134,7 @@ public class AuctionSession {
         }
 
         // 2. Kiểm tra trạng thái và thời gian hợp lệ
-        if (this.status != AuctionStatus.OPEN && this.status != AuctionStatus.RUNNING && this.status != AuctionStatus.EXTENDED) {
+        if (this.status != AuctionStatus.RUNNING && this.status != AuctionStatus.EXTENDED) {
             return false;
         }
         if (this.endTime != null && LocalDateTime.now().isAfter(this.endTime)) {
