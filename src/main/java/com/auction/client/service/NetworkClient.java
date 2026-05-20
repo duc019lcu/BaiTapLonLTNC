@@ -63,4 +63,28 @@ public class NetworkClient {
             System.err.println("Lỗi đóng kết nối: " + e.getMessage());
         }
     }
+    public interface MessageListener {
+        void onMessageReceived(String message);
+    }
+
+    private MessageListener listener;
+
+    public void setListener(MessageListener listener) {
+        this.listener = listener;
+    }
+
+    public void startListening() {
+        new Thread(() -> {
+            try {
+                while (true) {
+                    String response = in.readLine(); 
+                    if (response != null && listener != null) {
+                        listener.onMessageReceived(response);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Mất kết nối với Server!");
+            }
+        }).start();
+}
 }

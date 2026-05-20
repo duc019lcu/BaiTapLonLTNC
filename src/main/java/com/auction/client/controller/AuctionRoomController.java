@@ -72,6 +72,19 @@ public class AuctionRoomController {
 
     @FXML
     public void initialize() {
+        // Gọi NetworkClient thông qua getInstance()
+        NetworkClient.getInstance().setListener(message -> {
+            String[] parts = message.split("\\|");
+            if (parts[0].equals("CAP_NHAT")) {
+                // Platform.runLater giúp JavaFX không bị sập
+                javafx.application.Platform.runLater(() -> {
+                    lblCurrentPrice.setText(parts[2]); // Tên biến của cậu là lblCurrentPrice
+                    lblItemName.setText(parts[1]); 
+                });
+            }
+        });
+        // Bắt đầu lắng nghe
+        NetworkClient.getInstance().startListening();
         // Khởi tạo biểu đồ lịch sử giá (Tính năng nâng cao)
         series = new XYChart.Series<>();
         series.setName("Lịch sử giá");

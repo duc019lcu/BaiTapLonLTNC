@@ -1,20 +1,32 @@
 package com.auction.common.models;
+
 public class Bidder extends User {
-    private double balance;
+    private Wallet wallet; 
+
     public Bidder(String id, String username, String password, String fullName, String email, double balance) {
         super(id, username, password, fullName, email);
-        this.balance = balance;
+        this.wallet = new Wallet(); 
+        this.wallet.deposit(balance); // Nạp số dư ban đầu vào ví
     }
+
     @Override
     public String getRole() {
         return "BIDDER";
     }
-    public double getBalance() {
-        return balance;
+
+    // Trả về trực tiếp object Wallet để xử lý khóa/mở tiền
+    public Wallet getWallet() {
+        return wallet;
     }
+
+    // Giữ lại hàm này để code cũ (như UserDAO) gọi không bị lỗi
+    public double getBalance() {
+        return wallet.getBalance();
+    }
+
     @Override
     public void printInfo() {
         super.printInfo();
-        System.out.println("Số dư: " + balance);
+        System.out.println("Số dư khả dụng: " + wallet.getBalance() + " | Tiền đang cọc: " + wallet.getFrozenAmount());
     }
 }

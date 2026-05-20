@@ -103,4 +103,23 @@ public class UserDAO {
                 throw new SQLException("Unknown role: " + role);
         }
     }
+    // Hàm này giúp Trọng tài (AuctionSession) tìm người dùng để trừ/hoàn tiền
+    public User findById(String id) throws SQLException {
+        String sql = "SELECT * FROM users WHERE id = ?";
+        Connection conn = DatabaseUtil.getInstance().getConnection();
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+        try {
+            stmt = conn.prepareStatement(sql);
+            stmt.setString(1, id);
+            rs = stmt.executeQuery();
+            if (rs.next()) {
+                return mapRowToUser(rs);
+            }
+        } finally {
+            if (rs != null) rs.close();
+            if (stmt != null) stmt.close();
+        }
+        return null;
+    }
 }

@@ -1,19 +1,17 @@
 package com.auction.common.models;
 import java.io.Serializable;
-public abstract class User implements Serializable {
-    private String id;
+public abstract class User extends Entity implements Serializable {
     private String username;
     private String password;
     private String fullName;
     private String email;
     public User(String id, String username, String password, String fullName, String email) {
-        this.id = id;
+        super(id);
         this.username = username;
         this.password = password;
         this.fullName = fullName;
         this.email = email;
     }
-    public String getId() { return id; }
     public String getUsername() { return username; }
     public String getPassword() { return password; }
     public String getFullName() { return fullName; }

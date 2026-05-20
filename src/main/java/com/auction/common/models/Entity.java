@@ -3,20 +3,20 @@ import java.io.Serializable;
 public abstract class Entity implements Serializable {
     private static final long serialVersionUID = 1L; // Cần có để lưu file không bị lỗi
 
-    protected long id; // Mã định danh duy nhất
+    protected String id; // Mã định danh duy nhất
 
     public Entity() {
     }
 
-    public Entity(long id) {
+    public Entity(String id) {
         this.id = id;
     }
 
-    public long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(long id) {
+    public void setId(String id) {
         this.id = id;
     }
 }
