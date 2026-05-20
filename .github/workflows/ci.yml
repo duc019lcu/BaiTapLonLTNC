@@ -1,0 +1,130 @@
+name: CI — Auction System
+
+on:
+  push:
+    branches: [ main, master, "feature/**", "fix/**" ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # ══════════════════════════════════════════
+  #  JOB 1 — Build, Test, Package
+  # ══════════════════════════════════════════
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    # MySQL chạy song song với job (AuctionManagerTest cần DB thật)
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          MYSQL_DATABASE: auction_system
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -p$MYSQL_ROOT_PASSWORD --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      # ── 1. Lấy source code ──────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Cài Java 17 + cache Maven ────────
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      # ── 3. Ghi đè credentials DB cho CI ─────
+      #    (không commit password thật vào repo)
+      - name: Patch application.properties
+        run: |
+          FILE=src/main/resources/config/application.properties
+          sed -i "s|^db.url=.*|db.url=jdbc:mysql://127.0.0.1:3306/auction_system?allowPublicKeyRetrieval=true\&useSSL=false|" $FILE
+          sed -i "s|^db.username=.*|db.username=root|"                              $FILE
+          sed -i "s|^db.password=.*|db.password=${{ secrets.DB_PASSWORD }}|"        $FILE
+          echo "[CI] application.properties đã được cập nhật"
+          cat $FILE
+
+      # ── 4. Tạo schema (không có FK để test thoải mái) ──
+      - name: Init database schema
+        env:
+          MYSQL_PWD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          mysql -h 127.0.0.1 -u root auction_system <<'SQL'
+
+          CREATE TABLE IF NOT EXISTS users (
+            id          VARCHAR(50)  PRIMARY KEY,
+            username    VARCHAR(50)  NOT NULL UNIQUE,
+            password    VARCHAR(255) NOT NULL,
+            full_name   VARCHAR(100) NOT NULL,
+            email       VARCHAR(100) NOT NULL UNIQUE,
+            role        VARCHAR(20)  NOT NULL,
+            balance     DOUBLE       DEFAULT 0
+          );
+
+          CREATE TABLE IF NOT EXISTS items (
+            id          VARCHAR(50)  PRIMARY KEY,
+            name        VARCHAR(100) NOT NULL,
+            description TEXT,
+            init_price  DOUBLE       NOT NULL,
+            category    VARCHAR(50)  NOT NULL
+          );
+
+          CREATE TABLE IF NOT EXISTS auction_sessions (
+            auction_id          VARCHAR(50) PRIMARY KEY,
+            item_id             VARCHAR(50) NOT NULL,
+            seller_id           VARCHAR(50) NOT NULL,
+            start_time          DATETIME    NOT NULL,
+            end_time            DATETIME    NOT NULL,
+            status              VARCHAR(20) NOT NULL,
+            winner_id           VARCHAR(50),
+            current_highest_bid DOUBLE      DEFAULT 0
+          );
+
+          CREATE TABLE IF NOT EXISTS bid_transactions (
+            id          INT AUTO_INCREMENT PRIMARY KEY,
+            auction_id  VARCHAR(50) NOT NULL,
+            bidder_id   VARCHAR(50) NOT NULL,
+            bid_amount  DOUBLE      NOT NULL,
+            bid_time    DATETIME    NOT NULL
+          );
+
+          SQL
+          echo "[CI] Schema khởi tạo xong"
+
+      # ── 5. Compile ───────────────────────────
+      - name: Compile
+        run: mvn compile --no-transfer-progress
+
+      # ── 6. Chạy toàn bộ Unit Tests ───────────
+      - name: Test
+        run: mvn test --no-transfer-progress
+
+      # ── 7. Upload báo cáo test (kể cả khi fail) ──
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: target/surefire-reports/
+          retention-days: 14
+
+      # ── 8. Build JAR ─────────────────────────
+      - name: Package JAR
+        run: mvn package -DskipTests --no-transfer-progress
+
+      # ── 9. Lưu JAR để download ───────────────
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: auction-system-${{ github.sha }}
+          path: target/*.jar
+          retention-days: 30
