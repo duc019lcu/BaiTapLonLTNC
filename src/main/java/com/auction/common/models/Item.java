@@ -1,25 +1,17 @@
 package com.auction.common.models;
 
-public abstract class Item {
-    protected String id;
+public abstract class Item extends Entity{
     protected String name;
     protected String description;
     protected double initPrice;
     protected String category;
 
     public Item(String id, String name, String description, double initPrice, String category){
-        this.id=id;
+        super(id);
         this.name=name;
         this.description=description;
         this.initPrice=initPrice;
         this.category=category;
-    }
-
-    public String getId(){
-        return id;
-    }
-    public void setId(String id){
-        this.id=id;
     }
     public String getName(){
         return name;
