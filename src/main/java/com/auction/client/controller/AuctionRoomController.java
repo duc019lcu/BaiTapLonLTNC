@@ -58,7 +58,7 @@ public class AuctionRoomController {
 
     private XYChart.Series<String, Number> series;
     
-    private double currentPrice = 0;
+    private double currentPrice = 5000000;
     private int secondsRemaining = 3600; // Mô phỏng 1 tiếng
     private Timer timer;
 
@@ -104,49 +104,43 @@ public class AuctionRoomController {
     }
 
     private void loadAuctionDataFromServer(String auctionId) {
-        new Thread(() -> {
-            String response = NetworkClient.getInstance().sendRequest("GET_SESSION|" + auctionId);
+        String response = NetworkClient.getInstance().sendRequest("GET_SESSION|" + auctionId);
+        if (!response.startsWith("PHIEN|")) {
+            showAlert("Lỗi tải phiên", "Không thể lấy dữ liệu phiên đấu giá từ máy chủ.");
+            updatePriceDisplay(currentPrice, "Chưa có");
+            addChartData(currentPrice);
+            startTimer();
+            return;
+        }
 
-            Platform.runLater(() -> {
-                // CHẶN NULL TẠI ĐÂY
-                if (response == null || !response.startsWith("PHIEN|")) {
-                    showAlert("Lỗi tải phiên", "Máy chủ không phản hồi hoặc phiên không tồn tại!");
-                    updatePriceDisplay(currentPrice, "Chưa có");
-                    addChartData(currentPrice);
-                    startTimer();
-                    return;
-                }
+        Map<String, String> sessionData = parseKeyValueResponse(response);
+        currentPrice = parseDouble(sessionData.getOrDefault("gia_hien_tai", String.valueOf(currentPrice)), currentPrice);
+        String winner = sessionData.getOrDefault("nguoi_dan_dau", "");
+        String status = sessionData.getOrDefault("trang_thai", "OPEN");
+        String item = sessionData.getOrDefault("vat_pham", selectedAuctionItem != null ? selectedAuctionItem : "Sản phẩm chưa rõ");
+        String endTimeStr = sessionData.getOrDefault("end_time", "");
 
-                Map<String, String> sessionData = parseKeyValueResponse(response);
-                currentPrice = parseDouble(sessionData.getOrDefault("gia_hien_tai", String.valueOf(currentPrice)), currentPrice);
-                String winner = sessionData.getOrDefault("nguoi_dan_dau", "");
-                String status = sessionData.getOrDefault("trang_thai", "OPEN");
-                String item = sessionData.getOrDefault("vat_pham", selectedAuctionItem != null ? selectedAuctionItem : "Sản phẩm chưa rõ");
-                String endTimeStr = sessionData.getOrDefault("end_time", "");
+        lblItemName.setText(item);
+        lblDescription.setText("Phiên đấu giá: " + auctionId + "\nSản phẩm: " + item + "\nTrạng thái: " + status);
+        updatePriceDisplay(currentPrice, winner.isBlank() ? "Chưa có" : winner);
+        addChartData(currentPrice);
 
-                lblItemName.setText(item);
-                lblDescription.setText("Phiên đấu giá: " + auctionId + "\nSản phẩm: " + item + "\nTrạng thái: " + status);
-                updatePriceDisplay(currentPrice, winner.isBlank() ? "Chưa có" : winner);
-                addChartData(currentPrice);
-
-                if ("FINISHED".equalsIgnoreCase(status)) {
-                    secondsRemaining = 0;
-                    lblTimer.setText("ĐÃ KẾT THÚC");
-                    if (lblWinnerTitle != null) lblWinnerTitle.setText("NGƯỜI CHIẾN THẮNG");
-                    txtBidAmount.setDisable(true);
-                } else {
-                    secondsRemaining = parseSecondsUntil(endTimeStr, 3600);
-                    if (secondsRemaining <= 0) {
-                        secondsRemaining = 0;
-                        lblTimer.setText("ĐÃ KẾT THÚC");
-                        if (lblWinnerTitle != null) lblWinnerTitle.setText("NGƯỜI CHIẾN THẮNG");
-                        txtBidAmount.setDisable(true);
-                    } else {
-                        startTimer();
-                    }
-                }
-            });
-        }).start();
+        if ("FINISHED".equalsIgnoreCase(status)) {
+            secondsRemaining = 0;
+            lblTimer.setText("ĐÃ KẾT THÚC");
+            if (lblWinnerTitle != null) lblWinnerTitle.setText("NGƯỜI CHIẾN THẮNG");
+            txtBidAmount.setDisable(true);
+        } else {
+            secondsRemaining = parseSecondsUntil(endTimeStr, 3600);
+            if (secondsRemaining <= 0) {
+                secondsRemaining = 0;
+                lblTimer.setText("ĐÃ KẾT THÚC");
+                if (lblWinnerTitle != null) lblWinnerTitle.setText("NGƯỜI CHIẾN THẮNG");
+                txtBidAmount.setDisable(true);
+            } else {
+                startTimer();
+            }
+        }
     }
 
     private Map<String, String> parseKeyValueResponse(String response) {
@@ -175,14 +169,9 @@ public class AuctionRoomController {
     }
 
     private double parseDouble(String raw, double defaultValue) {
-        if (raw == null || raw.isBlank()) return defaultValue;
         try {
-            // Tương tự, lọc sạch các ký tự rác trước khi ép kiểu
-            String cleanValue = raw.replaceAll("[^\\d.]", "");
-            if (cleanValue.isEmpty()) return defaultValue;
-            return Double.parseDouble(cleanValue);
+            return Double.parseDouble(raw);
         } catch (NumberFormatException e) {
-            System.out.println("[DEBUG PHÒNG] Máy chủ gửi giá sai định dạng: " + raw);
             return defaultValue;
         }
     }
@@ -218,11 +207,7 @@ public class AuctionRoomController {
 
     @FXML
     void handlePlaceBid(ActionEvent event) {
-        // Đã thêm Alert để bạn biết nếu thời gian bằng 0
-        if (secondsRemaining <= 0 || selectedAuctionId == null) {
-            showAlert("Thông báo", "Phiên đấu giá này đã kết thúc hoặc chưa sẵn sàng!");
-            return;
-        }
+        if (secondsRemaining <= 0 || selectedAuctionId == null) return;
 
         try {
             double bidAmount = Double.parseDouble(txtBidAmount.getText());
@@ -234,49 +219,32 @@ public class AuctionRoomController {
             String bidderId = UserManager.getInstance().getCurrentUser() != null
                     ? UserManager.getInstance().getCurrentUser().getId()
                     : "anonymous";
+            String response = NetworkClient.getInstance().sendRequest(
+                    "PLACE_BID|" + selectedAuctionId + "|" + bidderId + "|" + bidAmount);
 
-            txtBidAmount.setDisable(true);
+            if (response.startsWith("CHAP_NHAN|") || response.startsWith("CAP_NHAT|")) {
+                Map<String, String> resultData = parseKeyValueResponse(response);
+                currentPrice = parseDouble(resultData.getOrDefault("gia_hien_tai", String.valueOf(currentPrice)), currentPrice);
+                String winner = resultData.getOrDefault("nguoi_dan_dau", "");
+                String status = resultData.getOrDefault("trang_thai", "RUNNING");
 
-            new Thread(() -> {
-                String response = NetworkClient.getInstance().sendRequest(
-                        "PLACE_BID|" + selectedAuctionId + "|" + bidderId + "|" + bidAmount);
+                updatePriceDisplay(currentPrice, winner.isBlank() ? "Chưa có" : winner);
+                addChartData(currentPrice);
 
-                Platform.runLater(() -> {
-                    txtBidAmount.setDisable(false);
-
-                    // CHẶN NULL KHI ĐẶT GIÁ
-                    if (response == null) {
-                        showAlert("Lỗi Mạng", "Máy chủ không phản hồi!");
-                        return;
-                    }
-
-                    if (response.startsWith("CHAP_NHAN|") || response.startsWith("CAP_NHAT|")) {
-                        Map<String, String> resultData = parseKeyValueResponse(response);
-                        currentPrice = parseDouble(resultData.getOrDefault("gia_hien_tai", String.valueOf(currentPrice)), currentPrice);
-                        String winner = resultData.getOrDefault("nguoi_dan_dau", "");
-                        String status = resultData.getOrDefault("trang_thai", "RUNNING");
-
-                        updatePriceDisplay(currentPrice, winner.isBlank() ? "Chưa có" : winner);
-                        addChartData(currentPrice);
-
-                        if ("FINISHED".equalsIgnoreCase(status)) {
-                            secondsRemaining = 0;
-                            lblTimer.setText("ĐÃ KẾT THÚC");
-                            if (lblWinnerTitle != null) lblWinnerTitle.setText("NGƯỜI CHIẾN THẮNG");
-                            txtBidAmount.setDisable(true);
-                        }
-                        showAlert("Thành công", "Đã ghi nhận mức giá của bạn!");
-                        txtBidAmount.clear();
-
-                        checkAndTriggerAutoBid();
-                    } else {
-                        // HIỂN THỊ LÝ DO BỊ SERVER TỪ CHỐI
-                        String message = response.contains("|") ? response.split("\\|", 2)[1] : response;
-                        showAlert("Bị từ chối", message);
-                    }
-                });
-            }).start();
-
+                if ("FINISHED".equalsIgnoreCase(status)) {
+                    secondsRemaining = 0;
+                    lblTimer.setText("ĐÃ KẾT THÚC");
+                    if (lblWinnerTitle != null) lblWinnerTitle.setText("NGƯỜI CHIẾN THẮNG");
+                    txtBidAmount.setDisable(true);
+                }
+                showAlert("Đặt giá thành công", "Bạn đã đặt giá thành công!");
+                txtBidAmount.clear();
+                
+                checkAndTriggerAutoBid(); // Kích hoạt auto-bid nếu có
+            } else {
+                String message = response.contains("|") ? response.split("\\|", 2)[1] : "Đặt giá không thành công.";
+                showAlert("Đặt giá thất bại", message);
+            }
         } catch (NumberFormatException e) {
             showAlert("Lỗi nhập liệu", "Vui lòng nhập số tiền hợp lệ!");
         }
@@ -323,31 +291,27 @@ public class AuctionRoomController {
 
     private void checkAndTriggerAutoBid() {
         if (!isAutoBidEnabled || secondsRemaining <= 0 || selectedAuctionId == null) return;
-
+        
         String currentUserId = UserManager.getInstance().getCurrentUser() != null
                 ? UserManager.getInstance().getCurrentUser().getId() : "anonymous";
         String winnerId = lblWinner.getText();
-
+        
         // Nếu không phải người dẫn đầu, tiến hành auto-bid
         if (!winnerId.equals(currentUserId) && !winnerId.equals("Chưa có")) {
-            double nextBid = currentPrice + 100000; // Auto cộng thêm 100k
+            // Giá bid tự động: Giá hiện tại + 100,000
+            double nextBid = currentPrice + 100000;
             if (nextBid <= maxAutoBidAmount) {
-                // Lại phải bọc Thread ở đây
-                new Thread(() -> {
-                    String response = NetworkClient.getInstance().sendRequest(
-                            "PLACE_BID|" + selectedAuctionId + "|" + currentUserId + "|" + nextBid);
-
-                    Platform.runLater(() -> {
-                        if (response.startsWith("CHAP_NHAN|") || response.startsWith("CAP_NHAT|")) {
-                            Map<String, String> resultData = parseKeyValueResponse(response);
-                            currentPrice = parseDouble(resultData.getOrDefault("gia_hien_tai", String.valueOf(currentPrice)), currentPrice);
-                            String winner = resultData.getOrDefault("nguoi_dan_dau", "");
-                            updatePriceDisplay(currentPrice, winner.isBlank() ? "Chưa có" : winner);
-                            addChartData(currentPrice);
-                            System.out.println("[Auto-bid] Đã tự động đặt giá: " + nextBid);
-                        }
-                    });
-                }).start();
+                String response = NetworkClient.getInstance().sendRequest(
+                        "PLACE_BID|" + selectedAuctionId + "|" + currentUserId + "|" + nextBid);
+                        
+                if (response.startsWith("CHAP_NHAN|") || response.startsWith("CAP_NHAT|")) {
+                    Map<String, String> resultData = parseKeyValueResponse(response);
+                    currentPrice = parseDouble(resultData.getOrDefault("gia_hien_tai", String.valueOf(currentPrice)), currentPrice);
+                    String winner = resultData.getOrDefault("nguoi_dan_dau", "");
+                    updatePriceDisplay(currentPrice, winner.isBlank() ? "Chưa có" : winner);
+                    addChartData(currentPrice);
+                    System.out.println("[Auto-bid] Đã tự động đặt giá: " + nextBid);
+                }
             } else {
                 // Tự động tắt nếu đã vượt ngưỡng
                 isAutoBidEnabled = false;

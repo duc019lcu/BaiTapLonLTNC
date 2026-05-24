@@ -2,7 +2,7 @@
 # Chay: .\check_db.ps1
 
 $mysql = "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
-$args_common = @("-u", "root", "-p", "--default-character-set=utf8mb4", "auction_system")
+$args_common = @("-u", "root", "-pKien2007zz@", "--default-character-set=utf8mb4", "auction_system")
 
 Write-Host "`n========================================" -ForegroundColor Cyan
 Write-Host "   KIEM TRA DATABASE DAU GIA" -ForegroundColor Cyan  

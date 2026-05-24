@@ -1,6 +1,3 @@
-/* =========================================================================
-   1. CẤU HÌNH NỀN TỔNG THỂ & LAYOUT NỀN TỐI
-   ========================================================================= */
 .page-bg {
     -fx-background-color: #0f172a; /* Nền tối tổng thể */
 }
@@ -62,9 +59,6 @@
     -fx-font-weight: 700;
 }
 
-/* =========================================================================
-   2. ĐỒNG BỘ CÁC KHUNG NHẬP LIỆU (MÀU NỀN, VIỀN, CHỮ VÀ CHỮ GỢI Ý)
-   ========================================================================= */
 .text-input, .text-area, .combo-box {
     -fx-background-color: #0f172a;
     -fx-border-color: #334155;
@@ -72,85 +66,21 @@
     -fx-background-radius: 10;
     -fx-padding: 10 14 10 14;
     -fx-font-size: 14px;
-    -fx-text-fill: white;          /* Màu chữ khi gõ hiển thị trắng sáng */
-    -fx-prompt-text-fill: #64748b; /* Màu chữ gợi ý (Placeholder) */
+    -fx-text-fill: white;
+    -fx-prompt-text-fill: #64748b;
 }
 
 .text-input:focused, .text-area:focused, .combo-box:focused {
-    -fx-border-color: #10b981;    /* Viền chuyển sang màu xanh ngọc */
+    -fx-border-color: #10b981;
 }
 
-/* --- FIX TRIỆT ĐỂ VIỀN TRẮNG, BO GÓC & ẨN NÚT KÉO TAM GIÁC (TextArea) --- */
-.text-area {
-    -fx-padding: 0;
-    -fx-background-color: transparent; /* Xóa nền thừa bọc ngoài */
-    -fx-border-color: #334155;         /* Ép lại viền xám đồng bộ */
-    -fx-border-radius: 10;
-    -fx-background-radius: 10;
-}
-
-.text-area:focused {
-    -fx-border-color: #10b981;         /* Đổi màu viền xanh ngọc khi được focus */
-}
-
-/* Ép phần hiển thị nội dung văn bản bên trong TextArea bo góc khít theo viền ngoài */
-.text-area .content {
-    -fx-background-color: #0f172a;
-    -fx-background-radius: 9;          /* Nhỏ hơn viền ngoài 1px tránh lẹm góc */
-    -fx-text-fill: white;
-    -fx-padding: 10 14 10 14;          /* Đẩy khoảng cách chữ gọn vào trong */
-}
-
-/* Biến mất hoàn toàn nút tam giác kéo giãn (Gripper) ở góc dưới TextArea */
-.text-area .scroll-pane .corner {
-    -fx-background-color: transparent;
-}
-
-/* --- FIX TRIỆT ĐỂ MÀU CHỮ NỔI Ô DANH MỤC (ComboBox) HẠ TÔNG ĐỒNG BỘ Ô GỢI Ý --- */
-.combo-box .label {
-    -fx-text-fill: #64748b;            /* Đưa nhãn tĩnh về màu xám dịu của placeholder */
-    -fx-font-weight: normal;
-}
-
-/* Sửa màu chữ hiển thị của dòng danh mục hiện tại đang chọn */
-.combo-box .list-cell {
-    -fx-text-fill: #64748b !important; /* Ép chữ hiển thị ban đầu về đúng màu xám dịu */
-    -fx-background-color: transparent;
-    -fx-padding: 0;
-}
-
-/* Định dạng bảng danh sách lựa chọn sổ xuống (Popup/Pano) */
-.combo-box-popup .list-view {
-    -fx-background-color: #1e293b;     /* Nền bảng sổ xuống tương thích với card bọc ngoài */
-    -fx-background-radius: 10;
-    -fx-border-color: #334155;
-    -fx-border-radius: 10;
-    -fx-padding: 5;
-}
-
-/* Định dạng từng dòng lựa chọn (Item) bên trong danh sách sổ xuống */
-.combo-box-popup .list-cell {
-    -fx-background-color: transparent;
-    -fx-text-fill: #cbd5e1;            /* Chữ của các lựa chọn có màu trắng xám dịu mắt */
-    -fx-padding: 8 12 8 12;
-}
-
-/* Hiệu ứng khi di chuột qua hoặc chọn một dòng trong danh mục */
-.combo-box-popup .list-cell:hover, .combo-box-popup .list-cell:selected {
-    -fx-background-color: #10b981;     /* Nền dòng chuyển sang màu xanh ngọc */
-    -fx-text-fill: white !important;   /* Khi tương tác chọn dòng thì chữ mới trắng sáng rực rỡ */
-    -fx-background-radius: 6;
-}
-
-/* =========================================================================
-   3. HỆ THỐNG NÚT BẤM (BUTTONS) HÀI HÒA
-   ========================================================================= */
+/* Các nút bấm hài hòa màu xanh ngọc (Dark Mode) */
 .btn-primary {
     -fx-background-color: #10b981;
     -fx-text-fill: white;
     -fx-font-size: 14px;
     -fx-font-weight: 700;
-    -fx-background-radius: 20;
+    -fx-background-radius: 20; /* Bo tròn theo VPA */
     -fx-cursor: hand;
     -fx-padding: 10 24 10 24;
 }
@@ -208,9 +138,7 @@
     -fx-font-weight: 700;
 }
 
-/* =========================================================================
-   4. GIAO DIỆN SÀN CHÍNH (MAIN HEADER, CARDS, TABLEVIEW)
-   ========================================================================= */
+/* Header */
 .main-header {
     -fx-background-color: #0f172a;
     -fx-padding: 16 24 16 24;
@@ -234,6 +162,7 @@
     -fx-padding: 24;
 }
 
+/* Cards (Trạng thái) */
 .stat-card {
     -fx-background-color: #1e293b;
     -fx-background-radius: 14;
@@ -263,7 +192,7 @@
     -fx-font-weight: 800;
 }
 
-/* Bảng TableView */
+/* TableView (Bảng đấu giá) */
 .auction-table {
     -fx-background-color: #0f172a;
     -fx-border-color: #1e293b;
@@ -322,9 +251,7 @@
     -fx-border-width: 1 0 0 0;
 }
 
-/* =========================================================================
-   5. MÀN HÌNH ĐĂNG NHẬP (LOGIN PAGE)
-   ========================================================================= */
+/* Login Page */
 .login-page {
     -fx-background-color: #0f172a;
 }
@@ -389,9 +316,7 @@
     -fx-text-fill: #94a3b8;
 }
 
-/* =========================================================================
-   6. PHÒNG ĐẤU GIÁ CHI TIẾT (AUCTION ROOM) & BIỂU ĐỒ REALTIME
-   ========================================================================= */
+/* Phòng đấu giá (Auction Room) */
 .chart-panel {
     -fx-background-color: #1e293b;
     -fx-background-radius: 18;
@@ -450,7 +375,7 @@
     -fx-min-width: 180px;
 }
 
-/* Các nhãn trạng thái động */
+/* Các nhãn trạng thái trong FXML nếu có */
 .status-running {
     -fx-background-color: #064e3b;
     -fx-text-fill: #34d399;
@@ -466,23 +391,16 @@
     -fx-text-fill: #f87171;
 }
 
-/* --- CHÌA KHÓA: ĐÈ PHẲNG NỀN BIỂU ĐỒ VỀ MÀU TỐI SẪM HOÀN TOÀN --- */
-.chart-panel .chart-content {
-    -fx-background-color: #1e293b !important;
-}
-
+/* Biểu đồ */
 .chart-plot-background {
-    -fx-background-color: #1e293b !important; /* Khóa chết màu sẫm của biểu đồ gốc */
+    -fx-background-color: transparent;
 }
-
 .chart-vertical-grid-lines, .chart-horizontal-grid-lines {
     -fx-stroke: #334155;
 }
-
 .axis {
     -fx-tick-label-fill: #94a3b8;
 }
-
 .axis-tick-mark, .axis-minor-tick-mark {
     -fx-stroke: transparent;
 }
