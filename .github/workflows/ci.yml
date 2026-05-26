@@ -15,12 +15,12 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
+          MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: auction_system
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -p$MYSQL_ROOT_PASSWORD --silent"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -proot --silent"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -36,20 +36,20 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # ─── Ghi file cấu hình từ GitHub Secrets (KHÔNG hardcode mật khẩu) ───
+      # ─── Ghi file cấu hình cho CI (sử dụng mật khẩu mặc định root) ───
       - name: Patch application.properties
         run: |
           cat > src/main/resources/config/application.properties << PROPS
           db.url=jdbc:mysql://127.0.0.1:3306/auction_system?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
           db.username=root
-          db.password=${{ secrets.DB_ROOT_PASSWORD }}
+          db.password=root
           PROPS
-          echo "[CI] application.properties đã được ghi (password ẩn)"
+          echo "[CI] application.properties đã được ghi"
 
       # ─── Khởi tạo schema (bao gồm cột frozen_amount) ───
       - name: Init database schema
         env:
-          MYSQL_PWD: ${{ secrets.DB_ROOT_PASSWORD }}
+          MYSQL_PWD: root
         run: |
           mysql -h 127.0.0.1 -u root auction_system << 'SQL'
           CREATE TABLE IF NOT EXISTS users (
