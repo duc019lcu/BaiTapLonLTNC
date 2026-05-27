@@ -69,6 +69,7 @@ public class AuctionRoomController {
     private double currentPrice     = 0;
     private int    secondsRemaining = 3600;
     private Timer  countdownTimer;
+    private String currentStatus    = "OPEN";
 
     private boolean isAutoBidEnabled   = false;
     private double  maxAutoBidAmount   = 0.0;
@@ -131,7 +132,7 @@ public class AuctionRoomController {
         Platform.runLater(() -> {
             double newPrice   = parseDouble(data.getOrDefault("gia_hien_tai", "0"), currentPrice);
             String newWinner  = data.getOrDefault("nguoi_dan_dau", "");
-            String newStatus  = data.getOrDefault("trang_thai", "RUNNING");
+            String newStatus  = data.getOrDefault("trang_thai", currentStatus);
             String endTimeStr = data.getOrDefault("end_time", "");
 
             if (newPrice > currentPrice) {
@@ -148,9 +149,14 @@ public class AuctionRoomController {
                 }
             }
 
-            if ("FINISHED".equalsIgnoreCase(newStatus)) {
+            if ("FINISHED".equalsIgnoreCase(newStatus) || "SUCCESS".equalsIgnoreCase(newStatus) || "FAILED".equalsIgnoreCase(newStatus) || "CANCELED".equalsIgnoreCase(newStatus)) {
                 onAuctionFinished();
+            } else if ("RUNNING".equalsIgnoreCase(newStatus) && ("PENDING".equalsIgnoreCase(currentStatus) || "CHỜ BẮT ĐẦU".equalsIgnoreCase(currentStatus))) {
+                int remaining = parseSecondsUntil(endTimeStr, -1);
+                secondsRemaining = (remaining >= 0) ? remaining : 3600;
+                startCountdown();
             }
+            currentStatus = newStatus;
 
             // Kích hoạt auto-bid nếu có người khác vừa vượt mặt
             checkAndTriggerAutoBid();
@@ -175,17 +181,23 @@ public class AuctionRoomController {
                 currentPrice  = parseDouble(data.getOrDefault("gia_hien_tai", "0"), 0);
                 String winner = data.getOrDefault("nguoi_dan_dau", "");
                 String status = data.getOrDefault("trang_thai", "OPEN");
+                currentStatus = status;
                 String item   = data.getOrDefault("vat_pham",
                         selectedAuctionItem != null ? selectedAuctionItem : "Sản phẩm");
                 String endTimeStr = data.getOrDefault("end_time", "");
+                String startTimeStr = data.getOrDefault("start_time", "");
 
                 lblItemName.setText(item);
                 lblDescription.setText("Phiên: " + auctionId + " | Sản phẩm: " + item + " | Trạng thái: " + status);
                 updatePriceDisplay(currentPrice, winner.isBlank() ? "Chưa có" : winner);
                 addChartPoint(currentPrice);
 
-                if ("FINISHED".equalsIgnoreCase(status)) {
+                if ("FINISHED".equalsIgnoreCase(status) || "SUCCESS".equalsIgnoreCase(status) || "FAILED".equalsIgnoreCase(status) || "CANCELED".equalsIgnoreCase(status)) {
                     onAuctionFinished();
+                } else if ("PENDING".equalsIgnoreCase(status) || "CHỜ BẮT ĐẦU".equalsIgnoreCase(status)) {
+                    int remaining = parseSecondsUntil(startTimeStr, -1);
+                    secondsRemaining = (remaining >= 0) ? remaining : 3600;
+                    startCountdown();
                 } else {
                     // Luôn dùng end_time thực từ server — tránh đồng hồ hiển thị 0
                     int remaining = parseSecondsUntil(endTimeStr, -1);
@@ -217,7 +229,11 @@ public class AuctionRoomController {
                     });
                 } else {
                     countdownTimer.cancel();
-                    Platform.runLater(AuctionRoomController.this::onAuctionFinished);
+                    if ("PENDING".equalsIgnoreCase(currentStatus) || "CHỜ BẮT ĐẦU".equalsIgnoreCase(currentStatus)) {
+                        Platform.runLater(() -> lblTimer.setText("00:00:00"));
+                    } else {
+                        Platform.runLater(AuctionRoomController.this::onAuctionFinished);
+                    }
                 }
             }
         }, 1000, 1000);
@@ -294,12 +310,12 @@ public class AuctionRoomController {
     private void checkAndTriggerAutoBid() {
         if (!isAutoBidEnabled || secondsRemaining <= 0 || selectedAuctionId == null) return;
 
-        String currentUserId = UserManager.getInstance().getCurrentUser() != null
-                ? UserManager.getInstance().getCurrentUser().getId() : "anonymous";
+        String currentUsername = UserManager.getInstance().getCurrentUser() != null
+                ? UserManager.getInstance().getCurrentUser().getUsername() : "anonymous";
         String currentWinner = lblWinner.getText();
 
         // Nếu mình đang dẫn đầu → không cần auto-bid
-        if (currentUserId.equals(currentWinner)) return;
+        if (currentUsername.equals(currentWinner)) return;
 
         double nextBid = currentPrice + autoBidIncrement;
         if (nextBid > maxAutoBidAmount) {
@@ -351,7 +367,8 @@ public class AuctionRoomController {
                         }
                     }
 
-                    if ("FINISHED".equalsIgnoreCase(data.getOrDefault("trang_thai", ""))) {
+                    String st = data.getOrDefault("trang_thai", "");
+                    if ("FINISHED".equalsIgnoreCase(st) || "SUCCESS".equalsIgnoreCase(st) || "FAILED".equalsIgnoreCase(st) || "CANCELED".equalsIgnoreCase(st)) {
                         onAuctionFinished();
                     }
                 } else if (response.startsWith("TU_CHOI|")) {

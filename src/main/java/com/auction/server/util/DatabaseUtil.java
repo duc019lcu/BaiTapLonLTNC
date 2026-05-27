@@ -77,7 +77,19 @@ public final class DatabaseUtil {
      * <strong>Phải đóng Connection sau khi dùng xong</strong> (dùng try-with-resources).
      */
     public Connection getConnection() throws SQLException {
+        if (isJUnitTest()) {
+            throw new SQLException("Database disabled in JUnit test mode to prevent data pollution.");
+        }
         return dataSource.getConnection();
+    }
+
+    private static boolean isJUnitTest() {
+        for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+            if (element.getClassName().startsWith("org.junit.")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Đóng toàn bộ pool — gọi khi server tắt. */

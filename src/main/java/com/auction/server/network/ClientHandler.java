@@ -86,18 +86,21 @@ public class ClientHandler implements Runnable {
         AuctionManager manager = AuctionManager.getInstance();
 
         return switch (command) {
-            case "LOGIN"          -> processLogin(parts);
-            case "REGISTER"       -> processRegister(parts);
-            case "LIST"           -> buildListResponse(manager);
-            case "LIST_DETAIL"    -> buildListDetailResponse(manager);
-            case "GET_SESSION"    -> buildSessionResponse(parts, manager);
-            case "CREATE_AUCTION" -> processCreateAuction(parts, manager);
-            case "CREATE_ITEM"    -> processCreateItem(parts);
-            case "PLACE_BID"      -> processBid(parts, manager);
-            case "CLOSE_SESSION" -> processCloseSession(parts, manager);
-            case "DEPOSIT"       -> processDeposit(parts);
-            case "QUIT"          -> "TAM_BIET";
-            default               -> "LOI|Lenh khong hop le: " + command;
+            case "LOGIN"           -> processLogin(parts);
+            case "REGISTER"        -> processRegister(parts);
+            case "LIST"            -> buildListResponse(manager);
+            case "LIST_DETAIL"     -> buildListDetailResponse(manager);
+            case "GET_SESSION"     -> buildSessionResponse(parts, manager);
+            case "CREATE_AUCTION"  -> processCreateAuction(parts, manager);
+            case "CREATE_ITEM"     -> processCreateItem(parts);
+            case "PLACE_BID"       -> processBid(parts, manager);
+            case "CLOSE_SESSION"   -> processCloseSession(parts, manager);
+            case "DEPOSIT"         -> processDeposit(parts);
+            case "GET_MY_AUCTIONS" -> processGetMyAuctions(parts);
+            case "DELETE_AUCTION"  -> processDeleteAuction(parts, manager);
+            case "UPDATE_AUCTION"  -> processUpdateAuction(parts, manager);
+            case "QUIT"            -> "TAM_BIET";
+            default                -> "LOI|Lenh khong hop le: " + command;
         };
     }
 
@@ -151,6 +154,7 @@ public class ClientHandler implements Runnable {
             String id = String.valueOf(System.currentTimeMillis());
             User newUser = switch (role) {
                 case "SELLER" -> new Seller(id, username, hashedPassword, username, email);
+                case "ADMIN"  -> new com.auction.common.models.Admin(id, username, hashedPassword, username, email);
                 default       -> new Bidder(id, username, hashedPassword, username, email, 0.0);
             };
 
@@ -186,7 +190,7 @@ public class ClientHandler implements Runnable {
             // Broadcast cho tất cả clients đang xem phiên này
             String broadcast = "CAP_NHAT|id=" + session.getAuctionID()
                     + "|gia_hien_tai=" + session.getCurrentHighestBid()
-                    + "|nguoi_dan_dau=" + nullSafe(session.getWinnerID())
+                    + "|nguoi_dan_dau=" + getWinnerUsername(session)
                     + "|trang_thai=" + session.getStatus()
                     + "|end_time=" + nullSafe(session.getEndTime());
             server.broadcast(broadcast);
@@ -219,11 +223,13 @@ public class ClientHandler implements Runnable {
         StringBuilder sb = new StringBuilder("DANH_SACH_CHI_TIET");
         for (AuctionSession s : manager.getAllSessions()) {
             sb.append("|")
-              .append(s.getAuctionID()).append(":")
-              .append(s.getDisplayItem()).append(":")
-              .append(s.getCurrentHighestBid()).append(":")
-              .append(s.getStatus()).append(":")
-              .append(nullSafe(s.getEndTime()));
+              .append(s.getAuctionID()).append(";")
+              .append(s.getDisplayItem()).append(";")
+              .append(s.getCurrentHighestBid()).append(";")
+              .append(s.getStatus()).append(";")
+              .append(nullSafe(s.getStartTime())).append(";")
+              .append(nullSafe(s.getEndTime())).append(";")
+              .append(s.getParticipantCount());
         }
         return sb.length() == "DANH_SACH_CHI_TIET".length()
                 ? "DANH_SACH_CHI_TIET|trong" : sb.toString();
@@ -241,6 +247,7 @@ public class ClientHandler implements Runnable {
         return "PHIEN|id=" + session.getAuctionID()
                 + "|vat_pham=" + session.getDisplayItem()
                 + "|" + buildSessionStatusStr(session)
+                + "|start_time=" + nullSafe(session.getStartTime())
                 + "|end_time=" + nullSafe(session.getEndTime());
     }
 
@@ -248,16 +255,24 @@ public class ClientHandler implements Runnable {
      * CREATE_AUCTION|auctionId|itemId|itemName|sellerId|startPrice|durationMinutes
      */
     private String processCreateAuction(String[] parts, AuctionManager manager) {
-        if (parts.length != 7) {
-            return "LOI|Dinh dang: CREATE_AUCTION|auctionId|itemId|itemName|sellerId|startPrice|durationMinutes";
+        if (parts.length != 7 && parts.length != 8) {
+            return "LOI|Dinh dang: CREATE_AUCTION|auctionId|itemId|itemName|sellerId|startPrice|startTimeISO|endTimeISO";
         }
         double startPrice;
-        int    duration;
+        java.time.LocalDateTime startTime;
+        java.time.LocalDateTime endTime;
         try {
             startPrice = Double.parseDouble(parts[5]);
-            duration   = Integer.parseInt(parts[6]);
-        } catch (NumberFormatException e) {
-            return "LOI|Gia va thoi gian phai la so";
+            if (parts.length == 8) {
+                startTime = java.time.LocalDateTime.parse(parts[6]);
+                endTime   = java.time.LocalDateTime.parse(parts[7]);
+            } else {
+                int duration = Integer.parseInt(parts[6]);
+                startTime = java.time.LocalDateTime.now();
+                endTime   = startTime.plusMinutes(Math.max(duration, 1));
+            }
+        } catch (Exception e) {
+            return "LOI|Tham so thoi gian hoac gia khong hop le";
         }
 
         // Đảm bảo item tồn tại trong DB (tránh FK violation)
@@ -273,10 +288,9 @@ public class ClientHandler implements Runnable {
         }
 
         boolean created = manager.createSession(
-                parts[1], parts[2], parts[3], parts[4], startPrice, duration);
+                parts[1], parts[2], parts[3], parts[4], startPrice, startTime, endTime);
         if (!created) return "LOI|Ma phien da ton tai: " + parts[1];
 
-        manager.startSession(parts[1]);
         return "CREATE_AUCTION_SUCCESS|" + parts[1];
     }
 
@@ -302,7 +316,7 @@ public class ClientHandler implements Runnable {
     /** Xây chuỗi trạng thái phiên (dùng chung cho nhiều response). */
     private String buildSessionStatusStr(AuctionSession session) {
         return "gia_hien_tai=" + session.getCurrentHighestBid()
-                + "|nguoi_dan_dau=" + nullSafe(session.getWinnerID())
+                + "|nguoi_dan_dau=" + getWinnerUsername(session)
                 + "|trang_thai=" + session.getStatus();
     }
 
@@ -326,6 +340,108 @@ public class ClientHandler implements Runnable {
         return rawPassword.equals(storedPassword);
     }
 
+
+    /**
+     * GET_MY_AUCTIONS|sellerId
+     * → MY_AUCTIONS|auctionId:itemName:price:status:endTime|...
+     */
+    private String processGetMyAuctions(String[] parts) {
+        if (parts.length != 2) return "LOI|Dinh dang: GET_MY_AUCTIONS|sellerId";
+        try {
+            var sessions = new com.auction.server.dao.AuctionDAO().getSessionsBySeller(parts[1]);
+            StringBuilder sb = new StringBuilder("MY_AUCTIONS");
+            for (var s : sessions) {
+                sb.append("|")
+                  .append(s.getAuctionID()).append(";")
+                  .append(s.getDisplayItem()).append(";")
+                  .append(s.getCurrentHighestBid()).append(";")
+                  .append(s.getStatus()).append(";")
+                  .append(nullSafe(s.getStartTime())).append(";")
+                  .append(nullSafe(s.getEndTime()));
+            }
+            return sb.length() == "MY_AUCTIONS".length() ? "MY_AUCTIONS|trong" : sb.toString();
+        } catch (Exception e) {
+            return "LOI|Loi lay danh sach: " + e.getMessage();
+        }
+    }
+
+    /**
+     * DELETE_AUCTION|auctionId|sellerId
+     * Chỉ cho phép xóa khi chưa có bid và seller là chủ phiên.
+     */
+    private String processDeleteAuction(String[] parts, AuctionManager manager) {
+        if (parts.length != 3) return "LOI|Dinh dang: DELETE_AUCTION|auctionId|sellerId";
+        String auctionId = parts[1];
+        String sellerId  = parts[2];
+        try {
+            com.auction.server.dao.AuctionDAO auctionDAO = new com.auction.server.dao.AuctionDAO();
+            
+            // Hoàn lại tiền cho bidder đang dẫn đầu (nếu có) trước khi xóa phiên đấu giá
+            com.auction.domain.AuctionSession session = manager.getSession(auctionId);
+            if (session != null) {
+                String leadingBidder = session.getCurrentHighestBidderID();
+                double leadingAmount = session.getCurrentHighestBid();
+                if (leadingBidder != null && !leadingBidder.isBlank()) {
+                    try {
+                        com.auction.server.dao.UserDAO userDAO = new com.auction.server.dao.UserDAO();
+                        com.auction.common.models.User user = userDAO.findById(leadingBidder);
+                        if (user instanceof com.auction.common.models.Bidder bidder) {
+                            bidder.getWallet().release(leadingAmount);
+                            userDAO.saveUser(bidder);
+                            System.out.printf("[SERVER] Hoan lai %.0f cho bidder %s khi seller xoa phien %s%n",
+                                leadingAmount, leadingBidder, auctionId);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("[SERVER] Loi hoan tien cho bidder khi xoa phien: " + e.getMessage());
+                    }
+                }
+            }
+
+            // Xóa khỏi AuctionManager (in-memory)
+            manager.removeSession(auctionId);
+            // Xóa khỏi DB (bảng auction_sessions)
+            auctionDAO.deleteSession(auctionId);
+            // Xóa các bid liên quan trong DB
+            try {
+                auctionDAO.deleteBidsByAuction(auctionId);
+            } catch (Exception e) {
+                System.err.println("[SERVER] Loi xoa bid transactions: " + e.getMessage());
+            }
+            return "DELETE_AUCTION_SUCCESS|" + auctionId;
+        } catch (Exception e) {
+            return "LOI|Loi xoa phien: " + e.getMessage();
+        }
+    }
+
+    /**
+     * UPDATE_AUCTION|auctionId|sellerId|newItemName
+     * Chỉ cho phép sửa khi chưa có bid và seller là chủ phiên.
+     */
+    private String processUpdateAuction(String[] parts, AuctionManager manager) {
+        if (parts.length != 4) return "LOI|Dinh dang: UPDATE_AUCTION|auctionId|sellerId|newItemName";
+        String auctionId   = parts[1];
+        String newItemName = parts[3];
+        try {
+            com.auction.server.dao.AuctionDAO auctionDAO = new com.auction.server.dao.AuctionDAO();
+            
+            // Lấy session để kiểm tra trạng thái và tìm itemId
+            com.auction.domain.AuctionSession session = manager.getSession(auctionId);
+            if (session == null) return "LOI|Khong tim thay phien: " + auctionId;
+
+            // Chỉ cho phép sửa khi phiên đấu giá chưa bắt đầu (status == PENDING)
+            if (session.getStatus() != com.auction.domain.AuctionStatus.PENDING) {
+                return "LOI|Khong the sua: phien dau gia da hoac dang bat dau (trang thai hien tai: " + session.getStatus() + ")";
+            }
+
+            // Cập nhật tên item trong DB
+            auctionDAO.updateItemName(session.getItemID(), newItemName);
+            // Cập nhật tên hiển thị in-memory
+            session.setDisplayItem(newItemName);
+            return "UPDATE_AUCTION_SUCCESS|" + auctionId;
+        } catch (Exception e) {
+            return "LOI|Loi cap nhat phien: " + e.getMessage();
+        }
+    }
 
     /**
      * CLOSE_SESSION|auctionId — Admin đóng phiên thủ công.
@@ -363,6 +479,22 @@ public class ClientHandler implements Runnable {
         } catch (Exception e) {
             return "LOI|Loi nap tien: " + e.getMessage();
         }
+    }
+
+    private String getWinnerUsername(AuctionSession session) {
+        String winnerId = session.getWinnerID();
+        if (winnerId == null || winnerId.isBlank()) {
+            return "";
+        }
+        try {
+            User user = new UserDAO().findById(winnerId);
+            if (user != null) {
+                return user.getUsername();
+            }
+        } catch (Exception e) {
+            System.err.println("[SERVER] Lỗi tìm username cho winnerID " + winnerId + ": " + e.getMessage());
+        }
+        return winnerId;
     }
 
     /** Giải phóng tài nguyên khi client ngắt kết nối. */

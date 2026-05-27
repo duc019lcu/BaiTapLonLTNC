@@ -35,8 +35,8 @@ public class RegisterController {
 
     @FXML
     public void initialize() {
-        cbRole.getItems().addAll("Nguoi mua (Bidder)", "Nguoi ban (Seller)");
-        cbRole.setValue("Nguoi mua (Bidder)");
+        cbRole.getItems().addAll("Người mua (Bidder)", "Người bán (Seller)");
+        cbRole.setValue("Người mua (Bidder)");
     }
 
     @FXML
@@ -64,7 +64,12 @@ public class RegisterController {
             return;
         }
 
-        String roleCode = role.contains("Seller") ? "SELLER" : "BIDDER";
+        String roleCode;
+        if (role.contains("Seller")) {
+            roleCode = "SELLER";
+        } else {
+            roleCode = "BIDDER";
+        }
         String request = "REGISTER|" + username + "|" + password + "|" + email + "|" + roleCode;
         String response = client.sendRequest(request);
 

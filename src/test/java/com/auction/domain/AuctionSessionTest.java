@@ -38,11 +38,12 @@ class AuctionSessionTest {
     // Từ chối bid khi phiên chưa RUNNING
     // -------------------------------------------------------------------------
     @Test
-    @DisplayName("Từ chối bid khi phiên chưa được bắt đầu (OPEN)")
-    void processBid_shouldRejectWhenStatusIsOpen() {
+    @DisplayName("Từ chối bid khi phiên chưa được bắt đầu (PENDING)")
+    void processBid_shouldRejectWhenStatusIsPending() {
+        session.setStatus(AuctionStatus.PENDING);
         BidResult result = session.processBid("BIDDER-1", 2_000_000.0);
 
-        assertFalse(result.success, "Phiên OPEN không được nhận bid");
+        assertFalse(result.success, "Phiên PENDING không được nhận bid");
         assertEquals(START_PRICE, session.getCurrentHighestBid(), "Giá không được thay đổi");
         assertNull(session.getWinnerID(), "Không có winner");
     }
@@ -156,7 +157,7 @@ class AuctionSessionTest {
     // Phiên hết giờ
     // -------------------------------------------------------------------------
     @Test
-    @DisplayName("Từ chối bid sau khi phiên hết giờ và chuyển sang FINISHED")
+    @DisplayName("Từ chối bid sau khi phiên hết giờ và chuyển sang FAILED")
     void processBid_shouldRejectAndFinishWhenTimeExpired() {
         LocalDateTime now = LocalDateTime.now();
         session = new AuctionSession(AUCTION_ID, ITEM_ID, ITEM_NAME, SELLER_ID,
@@ -166,7 +167,7 @@ class AuctionSessionTest {
         BidResult result = session.processBid("BIDDER-1", 2_000_000.0);
 
         assertFalse(result.success, "Phiên hết giờ không được nhận bid");
-        assertEquals(AuctionStatus.FINISHED, session.getStatus(), "Trạng thái phải là FINISHED");
+        assertEquals(AuctionStatus.FAILED, session.getStatus(), "Trạng thái phải là FAILED");
     }
 
     // -------------------------------------------------------------------------

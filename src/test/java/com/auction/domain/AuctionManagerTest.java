@@ -34,10 +34,11 @@ class AuctionManagerTest {
         String auctionId = "FLOW-" + System.nanoTime();
 
         // Tạo và start phiên
-        assertTrue(manager.createSession(auctionId, "ITEM-1", "SESSION-ITEM", "SELLER-1", 100.0, 60),
+        LocalDateTime now = LocalDateTime.now();
+        assertTrue(manager.createSession(auctionId, "ITEM-1", "SESSION-ITEM", "SELLER-1", 100.0, now.plusHours(1), now.plusHours(2)),
                 "Tạo phiên mới phải thành công");
         assertTrue(manager.startSession(auctionId),
-                "Start phiên OPEN phải thành công");
+                "Start phiên PENDING phải thành công");
 
         // Đặt giá (wallet không có trong test → bỏ qua, bid vẫn được ghi nhận)
         boolean bidOk = manager.placeBid(auctionId, "BIDDER-1", 150.0);
@@ -51,7 +52,7 @@ class AuctionManagerTest {
         assertNotNull(session);
         assertEquals(150.0,                   session.getCurrentHighestBid(), "Giá phải là 150.0");
         assertEquals("BIDDER-1",             session.getWinnerID(),          "Winner phải là BIDDER-1");
-        assertEquals(AuctionStatus.FINISHED, session.getStatus(),            "Trạng thái phải FINISHED");
+        assertEquals(AuctionStatus.SUCCESS, session.getStatus(),            "Trạng thái phải SUCCESS");
     }
 
     @Test
@@ -87,11 +88,12 @@ class AuctionManagerTest {
     @DisplayName("Từ chối bid vào phiên chưa RUNNING (trạng thái OPEN)")
     void placeBid_shouldRejectWhenSessionNotRunning() {
         String auctionId = "NOTRUN-" + System.nanoTime();
-        manager.createSession(auctionId, "ITEM-NR", "SELLER-NR", 100.0, 60);
-        // Không gọi startSession → trạng thái vẫn là OPEN
+        LocalDateTime now = LocalDateTime.now();
+        manager.createSession(auctionId, "ITEM-NR", "ITEM-NR", "SELLER-NR", 100.0, now.plusHours(1), now.plusHours(2));
+        // Không gọi startSession → trạng thái vẫn là PENDING
 
         assertFalse(manager.placeBid(auctionId, "BIDDER-NR", 150.0),
-                "Bid vào phiên OPEN phải bị từ chối");
+                "Bid vào phiên PENDING phải bị từ chối");
     }
 
     @Test
@@ -132,9 +134,9 @@ class AuctionManagerTest {
     @DisplayName("Không thể start phiên đã RUNNING")
     void startSession_shouldRejectAlreadyRunningSession() {
         String auctionId = "START-RUN-" + System.nanoTime();
-        manager.createSession(auctionId, "ITEM-SR", "SELLER-SR", 100.0);
-        manager.startSession(auctionId); // Lần 1
-
+        LocalDateTime now = LocalDateTime.now();
+        manager.createSession(auctionId, "ITEM-SR", "ITEM-SR", "SELLER-SR", 100.0, now.plusHours(1), now.plusHours(2));
+        assertTrue(manager.startSession(auctionId), "Lần 1 start PENDING thành công");
         assertFalse(manager.startSession(auctionId), "Không thể start phiên đang RUNNING");
     }
 

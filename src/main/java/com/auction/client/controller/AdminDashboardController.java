@@ -60,18 +60,21 @@ public class AdminDashboardController {
 
                 for (int i = 1; i < entries.length; i++) {
                     if ("trong".equalsIgnoreCase(entries[i])) break;
-                    // Format: id:itemName:price:status:endTime
-                    String[] p = entries[i].split(":", 5);
+                    // Format: id;itemName;price;status;startTime;endTime
+                    String[] p = entries[i].split(";");
                     if (p.length < 4) continue;
 
-                    String status = p[3];
-                    if ("RUNNING".equals(status) || "EXTENDED".equals(status)) running++;
-                    if ("FINISHED".equals(status) || "PAID".equals(status))     finished++;
+                    String status       = p[3];
+                    String startTimeStr = p.length > 4 ? p[4] : "";
+                    String endTimeStr   = p.length > 5 ? p[5] : "";
 
-                    double price      = parseDouble(p[2]);
-                    String endTimeStr = (p.length > 4) ? p[4] : "";
-                    String timeRemaining = formatTimeRemaining(endTimeStr);
-                    auctionData.add(new AuctionRow(stt++, p[0], p[1], price, 0, status, endTimeStr, timeRemaining));
+                    if ("RUNNING".equals(status) || "EXTENDED".equals(status)) running++;
+                    if ("FINISHED".equals(status) || "SUCCESS".equals(status) || "FAILED".equals(status) || "CANCELED".equals(status) || "PAID".equals(status)) finished++;
+
+                    double price         = parseDouble(p[2]);
+                    String timeRemaining = formatTimeRemaining(status, startTimeStr, endTimeStr);
+                    auctionData.add(new AuctionRow(stt++, p[0], p[1], price, 0, status,
+                            startTimeStr, endTimeStr, timeRemaining));
                 }
 
                 if (lblTotalSessions != null) lblTotalSessions.setText(String.valueOf(auctionData.size()));
@@ -133,13 +136,19 @@ public class AdminDashboardController {
         try { return Double.parseDouble(s); } catch (Exception e) { return 0; }
     }
 
-    private String formatTimeRemaining(String endTimeStr) {
-        if (endTimeStr == null || endTimeStr.isBlank()) return "00:00:00";
+    private String formatTimeRemaining(String status, String startTimeStr, String endTimeStr) {
         try {
-            LocalDateTime end = LocalDateTime.parse(endTimeStr);
-            long secs = Duration.between(LocalDateTime.now(), end).getSeconds();
-            if (secs <= 0) return "Đã kết thúc";
-            return String.format("%02d:%02d:%02d", secs / 3600, (secs % 3600) / 60, secs % 60);
+            if ("PENDING".equalsIgnoreCase(status)) {
+                if (startTimeStr == null || startTimeStr.isBlank()) return "00:00:00";
+                long secs = Duration.between(LocalDateTime.now(), LocalDateTime.parse(startTimeStr)).getSeconds();
+                if (secs <= 0) return "00:00:00";
+                return String.format("%02d:%02d:%02d", secs / 3600, (secs % 3600) / 60, secs % 60);
+            } else {
+                if (endTimeStr == null || endTimeStr.isBlank()) return "00:00:00";
+                long secs = Duration.between(LocalDateTime.now(), LocalDateTime.parse(endTimeStr)).getSeconds();
+                if (secs <= 0) return "Đã kết thúc";
+                return String.format("%02d:%02d:%02d", secs / 3600, (secs % 3600) / 60, secs % 60);
+            }
         } catch (Exception e) { return "00:00:00"; }
     }
 

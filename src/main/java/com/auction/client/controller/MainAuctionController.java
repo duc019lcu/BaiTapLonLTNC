@@ -8,12 +8,15 @@ import com.auction.common.util.SceneUtil;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableView;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.*;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -34,7 +37,22 @@ public class MainAuctionController {
     @FXML private Label               lblWelcome;
     @FXML private TableView<AuctionRow> auctionTable;
     @FXML private Button              btnCreateAuction;
+    @FXML private Button              btnMyProducts;
     @FXML private Button              btnRefresh;
+
+    // Các trường FXML mới cho thống kê & tìm kiếm
+    @FXML private TextField           txtSearch;
+    @FXML private Label               lblLiveCount;
+    @FXML private Label               lblPaginationInfo;
+
+    // Các cột TableView
+    @FXML private TableColumn<AuctionRow, Integer> colStt;
+    @FXML private TableColumn<AuctionRow, String>  colAuctionId;
+    @FXML private TableColumn<AuctionRow, String>  colItemName;
+    @FXML private TableColumn<AuctionRow, Double>  colCurrentPrice;
+    @FXML private TableColumn<AuctionRow, Integer> colParticipants;
+    @FXML private TableColumn<AuctionRow, String>  colStatus;
+    @FXML private TableColumn<AuctionRow, String>  colTimeRemaining;
 
     private final ObservableList<AuctionRow> auctionData = FXCollections.observableArrayList();
     private AuctionRow selectedAuction;
@@ -50,13 +68,50 @@ public class MainAuctionController {
                 lblWelcome.setText("Xin chào, " + currentUser.getFullName()
                         + " | Vai trò: " + currentUser.getClass().getSimpleName());
 
-                // Ẩn nút Tạo phiên với Bidder và Admin
+                // Ẩn/hiện nút theo vai trò
                 boolean isSeller = "Seller".equalsIgnoreCase(currentUser.getClass().getSimpleName());
                 btnCreateAuction.setVisible(isSeller);
                 btnCreateAuction.setManaged(isSeller);
+                if (btnMyProducts != null) {
+                    btnMyProducts.setVisible(isSeller);
+                    btnMyProducts.setManaged(isSeller);
+                }
             }
 
-            auctionTable.setItems(auctionData);
+            // 1. Ánh xạ các thuộc tính vào cột TableColumn
+            colStt.setCellValueFactory(cellData -> cellData.getValue().sttProperty().asObject());
+            colAuctionId.setCellValueFactory(cellData -> cellData.getValue().auctionIdProperty());
+            colItemName.setCellValueFactory(cellData -> cellData.getValue().itemNameProperty());
+            colCurrentPrice.setCellValueFactory(cellData -> cellData.getValue().currentPriceProperty().asObject());
+            colParticipants.setCellValueFactory(cellData -> cellData.getValue().participantCountProperty().asObject());
+            colStatus.setCellValueFactory(cellData -> cellData.getValue().statusProperty());
+            colTimeRemaining.setCellValueFactory(cellData -> cellData.getValue().timeRemainingProperty());
+
+            // 2. Cài đặt các custom CellFactory tuyệt đẹp
+            setupCustomCellFactories();
+
+            // 3. Tích hợp bộ lọc tìm kiếm Realtime (FilteredList)
+            FilteredList<AuctionRow> filteredData = new FilteredList<>(auctionData, p -> true);
+            txtSearch.textProperty().addListener((observable, oldValue, newValue) -> {
+                filteredData.setPredicate(auction -> {
+                    if (newValue == null || newValue.isEmpty()) {
+                        return true;
+                    }
+                    String lowerCaseFilter = newValue.toLowerCase();
+                    if (auction.getItemName().toLowerCase().contains(lowerCaseFilter)) {
+                        return true;
+                    } else if (auction.getAuctionId().toLowerCase().contains(lowerCaseFilter)) {
+                        return true;
+                    }
+                    return false;
+                });
+                updatePaginationLabel(filteredData.size());
+            });
+
+            SortedList<AuctionRow> sortedData = new SortedList<>(filteredData);
+            sortedData.comparatorProperty().bind(auctionTable.comparatorProperty());
+            auctionTable.setItems(sortedData);
+
             auctionTable.setOnMouseClicked(e ->
                     selectedAuction = auctionTable.getSelectionModel().getSelectedItem());
 
@@ -65,6 +120,178 @@ public class MainAuctionController {
         } catch (Exception e) {
             System.err.println("[MainController] Initialize lỗi: " + e.getMessage());
         }
+    }
+
+    private void updatePaginationLabel(int filteredSize) {
+        lblPaginationInfo.setText("Hiển thị " + filteredSize + " trên " + auctionData.size() + " phiên đang diễn ra");
+    }
+
+    /**
+     * Khởi tạo và thiết lập các custom CellFactory cho từng cột của TableView
+     */
+    private void setupCustomCellFactories() {
+        // Cột STT: Định dạng hai số dạng 01, 02...
+        colStt.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(Integer item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("%02d", item));
+                    setStyle("-fx-text-fill: #64748b; -fx-alignment: center; -fx-font-weight: bold;");
+                }
+            }
+        });
+
+        // Cột Phiên: Thêm mã ký tự #AUC-
+        colAuctionId.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText("#AUC-" + item);
+                    setStyle("-fx-text-fill: #94a3b8; -fx-font-weight: bold;");
+                }
+            }
+        });
+
+        // Cột Vật phẩm: Thêm biểu tượng trực quan emoji dựa theo tên sản phẩm
+        colItemName.setCellFactory(column -> new TableCell<>() {
+            private final HBox container = new HBox(8);
+            private final StackPane imgPlaceholder = new StackPane();
+            private final Label lblIcon = new Label("📦");
+            private final Label lblName = new Label();
+            {
+                container.setAlignment(Pos.CENTER_LEFT);
+                imgPlaceholder.setPrefSize(28, 28);
+                imgPlaceholder.setMinSize(28, 28);
+                imgPlaceholder.setMaxSize(28, 28);
+                imgPlaceholder.setStyle("-fx-background-color: #1e293b; -fx-background-radius: 6; -fx-border-color: #334155; -fx-border-radius: 6;");
+                lblIcon.setStyle("-fx-font-size: 14px;");
+                imgPlaceholder.getChildren().add(lblIcon);
+                lblName.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
+                container.getChildren().addAll(imgPlaceholder, lblName);
+            }
+
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setGraphic(null);
+                } else {
+                    lblName.setText(item);
+                    String lower = item.toLowerCase();
+                    if (lower.contains("đồng hồ") || lower.contains("rolex") || lower.contains("watch")) {
+                        lblIcon.setText("⌚");
+                    } else if (lower.contains("tranh") || lower.contains("art") || lower.contains("painting")) {
+                        lblIcon.setText("🖼️");
+                    } else if (lower.contains("sách") || lower.contains("book")) {
+                        lblIcon.setText("📖");
+                    } else if (lower.contains("laptop") || lower.contains("phone") || lower.contains("computer")) {
+                        lblIcon.setText("💻");
+                    } else {
+                        lblIcon.setText("📦");
+                    }
+                    setGraphic(container);
+                }
+            }
+        });
+
+        // Cột Giá: Định dạng dấu phẩy phân tách phần nghìn
+        colCurrentPrice.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("%,.0f", item));
+                    setStyle("-fx-text-fill: #10b981; -fx-font-weight: 800;");
+                }
+            }
+        });
+
+        // Cột Số người tham gia: Thêm icon nhóm người
+        colParticipants.setCellFactory(column -> new TableCell<>() {
+            private final HBox container = new HBox(6);
+            private final Label lblIcon = new Label("👥");
+            private final Label lblCount = new Label();
+            {
+                container.setAlignment(Pos.CENTER_LEFT);
+                lblIcon.setStyle("-fx-text-fill: #94a3b8; -fx-font-size: 12px;");
+                lblCount.setStyle("-fx-text-fill: #cbd5e1; -fx-font-weight: 600;");
+                container.getChildren().addAll(lblIcon, lblCount);
+            }
+
+            @Override
+            protected void updateItem(Integer item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setGraphic(null);
+                } else {
+                    lblCount.setText(String.valueOf(item));
+                    setGraphic(container);
+                }
+            }
+        });
+
+        // Cột Trạng thái: Dạng badge viên thuốc bo tròn màu sắc
+        colStatus.setCellFactory(column -> new TableCell<>() {
+            private final Label badge = new Label();
+            {
+                badge.setPadding(new Insets(4, 10, 4, 10));
+                badge.setStyle("-fx-background-radius: 12; -fx-font-weight: bold; -fx-font-size: 11px;");
+            }
+
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setGraphic(null);
+                } else {
+                    String display = item.toUpperCase();
+                    switch (display) {
+                        case "SUCCESS" -> display = "THÀNH CÔNG";
+                        case "FAILED" -> display = "THẤT BẠI";
+                        case "CANCELED" -> display = "ĐÃ HỦY";
+                        case "PENDING" -> display = "CHỜ BẮT ĐẦU";
+                        case "RUNNING" -> display = "ĐANG DIỄN RA";
+                        case "EXTENDED" -> display = "GIA HẠN";
+                    }
+                    badge.setText("• " + display);
+
+                    if ("RUNNING".equalsIgnoreCase(item) || "EXTENDED".equalsIgnoreCase(item) || "ĐANG DIỄN RA".equalsIgnoreCase(item)) {
+                        badge.setStyle("-fx-background-color: rgba(16, 185, 129, 0.15); -fx-text-fill: #34d399; -fx-background-radius: 12; -fx-font-weight: bold; -fx-font-size: 11px;");
+                    } else if ("FINISHED".equalsIgnoreCase(item) || "SUCCESS".equalsIgnoreCase(item) || "FAILED".equalsIgnoreCase(item) || "CANCELED".equalsIgnoreCase(item) || "ĐÃ KẾT THÚC".equalsIgnoreCase(item) || "PAID".equalsIgnoreCase(item)) {
+                        badge.setStyle("-fx-background-color: rgba(239, 68, 68, 0.15); -fx-text-fill: #f87171; -fx-background-radius: 12; -fx-font-weight: bold; -fx-font-size: 11px;");
+                    } else {
+                        badge.setStyle("-fx-background-color: rgba(59, 130, 246, 0.15); -fx-text-fill: #60a5fa; -fx-background-radius: 12; -fx-font-weight: bold; -fx-font-size: 11px;");
+                    }
+                    setGraphic(badge);
+                }
+            }
+        });
+
+        // Cột Đồng hồ đếm ngược: Đậm màu cam nổi bật
+        colTimeRemaining.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    if ("Đã kết thúc".equals(item)) {
+                        setStyle("-fx-text-fill: #ef4444; -fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-font-size: 14px;");
+                    } else {
+                        setStyle("-fx-text-fill: #f97316; -fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-font-size: 14px;");
+                    }
+                }
+            }
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -109,23 +336,27 @@ public class MainAuctionController {
         for (int i = 1; i < entries.length; i++) {
             if ("trong".equalsIgnoreCase(entries[i])) break;
 
-            // Format: id:itemName:price:status:endTime
-            String[] parts = entries[i].split(":", 5);
-            if (parts.length < 5) continue;
+            // Format: id;itemName;price;status;startTime;endTime
+            String[] parts = entries[i].split(";");
+            if (parts.length < 6) continue;
 
             String auctionId     = parts[0];
             String itemName      = parts[1];
             double currentPrice  = parseDouble(parts[2]);
             String status        = parts[3];
-            String endTimeStr    = parts[4];          // ISO datetime gốc — dùng cho live timer
-            String timeRemaining = calculateTimeRemaining(endTimeStr); // hiển thị lần đầu
+            String startTimeStr  = parts[4];
+            String endTimeStr    = parts[5];
+            int participantCount = parts.length > 6 ? (int) parseDouble(parts[6]) : 0;
+            String timeRemaining = calculateTimeRemaining(status, startTimeStr, endTimeStr);
 
             rows.add(new AuctionRow(stt++, auctionId, itemName, currentPrice,
-                    0, status, endTimeStr, timeRemaining));
+                    participantCount, status, startTimeStr, endTimeStr, timeRemaining));
         }
 
         Platform.runLater(() -> {
             auctionData.setAll(rows);
+            lblLiveCount.setText(String.valueOf(rows.size()));
+            updatePaginationLabel(rows.size());
             startLiveCountdown();   // Khởi động timer đếm ngược realtime
         });
     }
@@ -149,10 +380,7 @@ public class MainAuctionController {
                 Platform.runLater(() -> {
                     boolean allDone = true;
                     for (AuctionRow row : auctionData) {
-                        String endTimeStr = row.getEndTimeStr();
-                        if (endTimeStr == null || endTimeStr.isBlank()) continue;
-
-                        String display = calculateTimeRemaining(endTimeStr);
+                        String display = calculateTimeRemaining(row.getStatus(), row.getStartTimeStr(), row.getEndTimeStr());
                         row.timeRemainingProperty().set(display);
 
                         if (!"Đã kết thúc".equals(display)) {
@@ -186,12 +414,24 @@ public class MainAuctionController {
     }
 
     @FXML
+    void handleMyProducts(ActionEvent event) {
+        if (liveCountdownTimer != null) liveCountdownTimer.cancel();
+        SceneUtil.changeScene(event, "SellerProducts.fxml", "Quản lý sản phẩm của tôi");
+    }
+
+    @FXML
     void handleJoinAuction(ActionEvent event) {
         if (selectedAuction == null) {
             showAlert(Alert.AlertType.INFORMATION, "Chưa chọn phiên",
                     "Vui lòng chọn một phiên đấu giá để tham gia!");
             return;
         }
+
+        if ("PENDING".equalsIgnoreCase(selectedAuction.getStatus()) || "CHỜ BẮT ĐẦU".equalsIgnoreCase(selectedAuction.getStatus())) {
+            showAlert(Alert.AlertType.WARNING, "Phiên chưa bắt đầu", "Phiên đấu giá chưa bắt đầu, xin vui lòng quay lại khi phiên đấu giá bắt đầu.");
+            return;
+        }
+
         if (liveCountdownTimer != null) liveCountdownTimer.cancel();
         AuctionRoomController.setSelectedAuction(
                 selectedAuction.getAuctionId(), selectedAuction.getItemName());
@@ -214,16 +454,29 @@ public class MainAuctionController {
         catch (NumberFormatException e) { return 0.0; }
     }
 
-    private String calculateTimeRemaining(String endTimeStr) {
-        if (endTimeStr == null || endTimeStr.isBlank()) return "00:00:00";
-        try {
-            LocalDateTime endTime = LocalDateTime.parse(endTimeStr);
-            long seconds = Duration.between(LocalDateTime.now(), endTime).getSeconds();
-            if (seconds <= 0) return "Đã kết thúc";
-            return String.format("%02d:%02d:%02d",
-                    seconds / 3600, (seconds % 3600) / 60, seconds % 60);
-        } catch (Exception e) {
-            return "00:00:00";
+    private String calculateTimeRemaining(String status, String startTimeStr, String endTimeStr) {
+        if ("PENDING".equalsIgnoreCase(status) || "CHỜ BẮT ĐẦU".equalsIgnoreCase(status)) {
+            if (startTimeStr == null || startTimeStr.isBlank()) return "00:00:00";
+            try {
+                LocalDateTime startTime = LocalDateTime.parse(startTimeStr);
+                long seconds = Duration.between(LocalDateTime.now(), startTime).getSeconds();
+                if (seconds <= 0) return "00:00:00";
+                return String.format("%02d:%02d:%02d",
+                        seconds / 3600, (seconds % 3600) / 60, seconds % 60);
+            } catch (Exception e) {
+                return "00:00:00";
+            }
+        } else {
+            if (endTimeStr == null || endTimeStr.isBlank()) return "00:00:00";
+            try {
+                LocalDateTime endTime = LocalDateTime.parse(endTimeStr);
+                long seconds = Duration.between(LocalDateTime.now(), endTime).getSeconds();
+                if (seconds <= 0) return "Đã kết thúc";
+                return String.format("%02d:%02d:%02d",
+                        seconds / 3600, (seconds % 3600) / 60, seconds % 60);
+            } catch (Exception e) {
+                return "00:00:00";
+            }
         }
     }
 

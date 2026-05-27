@@ -29,11 +29,26 @@
                 <Label text="Giá khởi điểm (*):" GridPane.columnIndex="0" GridPane.rowIndex="2" styleClass="field-label" />
                 <TextField fx:id="txtStartPrice" promptText="Nhập số tiền (VNĐ)" prefHeight="42" styleClass="text-input" GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
-                <Label text="Thời gian (Phút) (*):" GridPane.columnIndex="0" GridPane.rowIndex="3" styleClass="field-label" />
-                <TextField fx:id="txtDuration" promptText="VD: 60 (tương đương 1 tiếng)" prefHeight="42" styleClass="text-input" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                <Label text="Bắt đầu (*):" GridPane.columnIndex="0" GridPane.rowIndex="3" styleClass="field-label" />
+                <HBox spacing="8" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="3">
+                    <DatePicker fx:id="dpStartDate" prefHeight="42" prefWidth="150" promptText="Chọn ngày" styleClass="date-picker" />
+                    <ComboBox fx:id="cbStartHour" prefHeight="42" prefWidth="70" styleClass="combo-box" />
+                    <Label text="h" style="-fx-text-fill: #94a3b8; -fx-font-weight: bold;" />
+                    <ComboBox fx:id="cbStartMinute" prefHeight="42" prefWidth="70" styleClass="combo-box" />
+                    <Label text="m" style="-fx-text-fill: #94a3b8; -fx-font-weight: bold;" />
+                </HBox>
 
-                <Label text="Mô tả chi tiết:" GridPane.columnIndex="0" GridPane.rowIndex="4" GridPane.valignment="TOP" styleClass="field-label" />
-                <TextArea fx:id="txtDescription" promptText="Thông tin tình trạng sản phẩm..." prefRowCount="5" wrapText="true" styleClass="text-area" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+                <Label text="Kết thúc (*):" GridPane.columnIndex="0" GridPane.rowIndex="4" styleClass="field-label" />
+                <HBox spacing="8" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="4">
+                    <DatePicker fx:id="dpEndDate" prefHeight="42" prefWidth="150" promptText="Chọn ngày" styleClass="date-picker" />
+                    <ComboBox fx:id="cbEndHour" prefHeight="42" prefWidth="70" styleClass="combo-box" />
+                    <Label text="h" style="-fx-text-fill: #94a3b8; -fx-font-weight: bold;" />
+                    <ComboBox fx:id="cbEndMinute" prefHeight="42" prefWidth="70" styleClass="combo-box" />
+                    <Label text="m" style="-fx-text-fill: #94a3b8; -fx-font-weight: bold;" />
+                </HBox>
+
+                <Label text="Mô tả chi tiết:" GridPane.columnIndex="0" GridPane.rowIndex="5" styleClass="field-label" />
+                <TextField fx:id="txtDescription" promptText="Thông tin tình trạng sản phẩm..." prefHeight="42" styleClass="text-input" GridPane.columnIndex="1" GridPane.rowIndex="5" />
             </GridPane>
 
             <HBox alignment="CENTER" spacing="16" style="-fx-padding: 10 0 0 0;">

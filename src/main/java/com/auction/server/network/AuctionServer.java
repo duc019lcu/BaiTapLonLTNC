@@ -1,5 +1,8 @@
 package com.auction.server.network;
 
+import com.auction.domain.AuctionManager;
+import com.auction.server.util.DatabaseUtil;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
@@ -14,9 +17,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import com.auction.domain.AuctionManager;
-import com.auction.server.util.DatabaseUtil;
 
 /**
  * Server lắng nghe kết nối TCP từ các client đấu giá.
@@ -42,6 +42,16 @@ public class AuctionServer {
     public void start() throws IOException {
         initializeDatabase();
         seedDemoData();
+
+        // Đăng ký callback cho AuctionManager để broadcast cho các client
+        AuctionManager.getInstance().setBroadcastStatusCallback((auctionId, status) -> {
+            com.auction.domain.AuctionSession s = AuctionManager.getInstance().getSession(auctionId);
+            String endTimeStr = (s != null && s.getEndTime() != null) ? s.getEndTime().toString() : "";
+            broadcast("CAP_NHAT|id=" + auctionId + "|trang_thai=" + status + "|end_time=" + endTimeStr);
+        });
+        AuctionManager.getInstance().setBroadcastExtensionCallback((auctionId, endTimeISO) -> {
+            broadcast("CAP_NHAT|id=" + auctionId + "|end_time=" + endTimeISO);
+        });
 
         // Shutdown hook: lưu data và tắt pool sạch sẽ
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -71,7 +81,7 @@ public class AuctionServer {
         }
     }
 
-    // ----------   ---------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Broadcast tới tất cả clients
     // -------------------------------------------------------------------------
     public void broadcast(String message) {
@@ -110,6 +120,10 @@ public class AuctionServer {
             }
 
             com.auction.server.dao.UserDAO userDAO = new com.auction.server.dao.UserDAO();
+            if (userDAO.getUserByUsername("admin") == null) {
+                userDAO.saveUser(new com.auction.common.models.Admin(
+                        "ADMIN1", "admin", "admin123", "Quản trị viên", "admin@auction.com"));
+            }
             if (userDAO.getUserByUsername("SELLER1") == null) {
                 userDAO.saveUser(new com.auction.common.models.Seller(
                         "SELLER1", "SELLER1", "seller123", "Seller Demo", "seller@demo.com"));

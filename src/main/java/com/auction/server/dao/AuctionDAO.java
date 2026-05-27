@@ -87,13 +87,105 @@ public class AuctionDAO {
                         parseDateTime(rs.getString("start_time")),
                         parseDateTime(rs.getString("end_time")));
 
-                session.setStatus(AuctionStatus.valueOf(rs.getString("status")));
+                session.setStatus(AuctionStatus.fromDbString(rs.getString("status")));
                 session.setWinnerID(rs.getString("winner_id"));
 
                 sessions.add(session);
             }
         }
         return sessions;
+    }
+
+    /**
+     * Lấy tất cả phiên đấu giá của một seller theo sellerId.
+     */
+    public List<AuctionSession> getSessionsBySeller(String sellerId) throws SQLException {
+        String sql = """
+                SELECT s.auction_id, s.item_id,
+                       COALESCE(i.name, s.item_id) AS item_name,
+                       s.seller_id, s.start_time, s.end_time,
+                       s.status, s.winner_id, s.current_highest_bid
+                FROM   auction_sessions s
+                LEFT JOIN items i ON s.item_id = i.id
+                WHERE  s.seller_id = ?
+                """;
+
+        List<AuctionSession> sessions = new ArrayList<>();
+        try (Connection conn = DatabaseUtil.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, sellerId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    AuctionSession session = new AuctionSession(
+                            rs.getString("auction_id"),
+                            rs.getString("item_id"),
+                            rs.getString("item_name"),
+                            rs.getString("seller_id"),
+                            rs.getDouble("current_highest_bid"),
+                            parseDateTime(rs.getString("start_time")),
+                            parseDateTime(rs.getString("end_time")));
+                    session.setStatus(AuctionStatus.fromDbString(rs.getString("status")));
+                    session.setWinnerID(rs.getString("winner_id"));
+                    sessions.add(session);
+                }
+            }
+        }
+        return sessions;
+    }
+
+    /**
+     * Xóa một phiên đấu giá theo auctionId.
+     * Chỉ nên xóa khi chưa có bid (được kiểm soát ở tầng service/handler).
+     */
+    public void deleteSession(String auctionId) throws SQLException {
+        String sql = "DELETE FROM auction_sessions WHERE auction_id = ?";
+        try (Connection conn = DatabaseUtil.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, auctionId);
+            stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Xóa tất cả các giao dịch đặt giá liên quan đến phiên đấu giá theo auctionId.
+     */
+    public void deleteBidsByAuction(String auctionId) throws SQLException {
+        String sql = "DELETE FROM bid_transactions WHERE auction_id = ?";
+        try (Connection conn = DatabaseUtil.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, auctionId);
+            stmt.executeUpdate();
+        }
+    }
+
+
+    /**
+     * Cập nhật tên vật phẩm hiển thị của phiên (thông qua bảng items).
+     */
+    public void updateItemName(String itemId, String newName) throws SQLException {
+        String sql = "UPDATE items SET name = ? WHERE id = ?";
+        try (Connection conn = DatabaseUtil.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, newName);
+            stmt.setString(2, itemId);
+            stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Kiểm tra xem phiên đấu giá đã có bid chưa.
+     * @return số lượng bid đã đặt
+     */
+    public int countBids(String auctionId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM bid_transactions WHERE auction_id = ?";
+        try (Connection conn = DatabaseUtil.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, auctionId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
