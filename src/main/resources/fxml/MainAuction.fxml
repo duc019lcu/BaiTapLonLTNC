@@ -30,11 +30,12 @@
                         styleClass="sidebar-nav-item" />
 
                     <Region VBox.vgrow="ALWAYS" />
-
-                    <Button text="Settings" styleClass="sidebar-nav-item"
-                        disable="true" opacity="0.4" />
-                    <Button text="Support" styleClass="sidebar-nav-item"
-                        disable="true" opacity="0.4" />
+                    <Button fx:id="btnBanUser" text="🔨 Ban/Unban User"
+                            onAction="#handleBanUser"
+                            styleClass="sidebar-nav-item"/>
+                    <Button fx:id="btnActivityLog" text="📋 Activity Log"
+                            onAction="#handleActivityLog"
+                            styleClass="sidebar-nav-item"/>
                 </VBox>
             </VBox>
         </left>

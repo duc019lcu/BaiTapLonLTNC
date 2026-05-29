@@ -1,5 +1,6 @@
 package com.auction.server.network;
 
+import com.auction.common.models.User;
 import com.auction.domain.AuctionManager;
 import com.auction.server.util.DatabaseUtil;
 
@@ -139,7 +140,15 @@ public class AuctionServer {
             }
 
             com.auction.server.dao.UserDAO userDAO = new com.auction.server.dao.UserDAO();
-            if (userDAO.getUserByUsername("admin") == null) {
+            User existingAdmin = userDAO.getUserByUsername("admin");
+            if (existingAdmin != null && !existingAdmin.getPassword().startsWith("$2")) {
+                try (var conn = com.auction.server.util.DatabaseUtil.getInstance().getConnection();
+                    var stmt = conn.prepareStatement("DELETE FROM users WHERE username = 'admin'")) {
+                    stmt.executeUpdate();
+                }
+                existingAdmin = null;
+            }
+            if (existingAdmin == null) {
                 String hashedAdmin = BCrypt.withDefaults()
                         .hashToString(12, "Admin@2026".toCharArray());
                 userDAO.saveUser(new com.auction.common.models.Admin(

@@ -24,11 +24,14 @@ public class LoginController {
     @FXML private TextField     txtUsername;
     @FXML private PasswordField txtPassword;
     @FXML private Label         lblMessage;
+    @FXML private TextField  txtPasswordVisible;
+    @FXML private javafx.scene.shape.SVGPath eyeIcon;
+    private boolean passwordVisible = false;
 
     @FXML
     void handleLogin(ActionEvent event) {
         String username = txtUsername.getText().trim();
-        String password = txtPassword.getText().trim();
+        String password = (passwordVisible ? txtPasswordVisible : txtPassword).getText().trim();
 
         // Validation cơ bản phía client
         if (username.isEmpty() || password.isEmpty()) {
@@ -88,5 +91,32 @@ public class LoginController {
     @FXML
     void goToRegister(ActionEvent event) {
         SceneUtil.changeScene(event, "Register.fxml", "Đăng ký tài khoản");
+    }
+    @FXML
+    void handleTogglePassword(javafx.scene.input.MouseEvent event) {
+        passwordVisible = !passwordVisible;
+        if (passwordVisible) {
+            txtPasswordVisible.setText(txtPassword.getText());
+            txtPasswordVisible.setVisible(true);
+            txtPasswordVisible.setManaged(true);
+            txtPassword.setVisible(false);
+            txtPassword.setManaged(false);
+        } else {
+            txtPassword.setText(txtPasswordVisible.getText());
+            txtPassword.setVisible(true);
+            txtPassword.setManaged(true);
+            txtPasswordVisible.setVisible(false);
+            txtPasswordVisible.setManaged(false);
+        }
+    }
+
+    @FXML
+    void handleForgotPassword(ActionEvent event) {
+        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+                javafx.scene.control.Alert.AlertType.INFORMATION);
+        alert.setTitle("Quên mật khẩu");
+        alert.setHeaderText(null);
+        alert.setContentText("Vui long lien he admin de duoc ho tro lay lai mat khau.\nEmail: admin@auction.com");
+        alert.show();
     }
 }
