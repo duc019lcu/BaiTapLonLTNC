@@ -17,6 +17,10 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+
+import com.auction.client.controller.NotificationController;
+import java.util.function.Consumer;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -54,6 +58,14 @@ public class MainAuctionController {
     @FXML private TableColumn<AuctionRow, String>  colStatus;
     @FXML private TableColumn<AuctionRow, String>  colTimeRemaining;
 
+    @FXML private Button btnSellerCenter;
+    @FXML private Button btnDashboard;
+    @FXML private Button btnActiveAuctions;
+
+    @FXML private Label                  lblBadge;
+    @FXML private NotificationController notificationPanelController;
+    @FXML private VBox                   notificationPopup;
+
     private final ObservableList<AuctionRow> auctionData = FXCollections.observableArrayList();
     private AuctionRow selectedAuction;
 
@@ -72,11 +84,25 @@ public class MainAuctionController {
                 boolean isSeller = "Seller".equalsIgnoreCase(currentUser.getClass().getSimpleName());
                 btnCreateAuction.setVisible(isSeller);
                 btnCreateAuction.setManaged(isSeller);
-                if (btnMyProducts != null) {
-                    btnMyProducts.setVisible(isSeller);
-                    btnMyProducts.setManaged(isSeller);
-                }
+            if (notificationPopup != null) {
+                notificationPopup.setVisible(false);
+                notificationPopup.setManaged(false);
             }
+
+            // 1. Ánh xạ các thuộc tính vào cột TableColumn
+            NetworkClient.getInstance().setNotificationListener(message ->
+                Platform.runLater(() -> {
+                    if (notificationPanelController != null) {
+                        notificationPanelController.onRealtimeNotification(message);
+                        updateBellBadge(notificationPanelController.getUnreadCount());
+                    }
+                })
+            );
+            if (notificationPopup != null) {
+                notificationPopup.setVisible(false);
+                notificationPopup.setManaged(false);
+            }
+        }
 
             // 1. Ánh xạ các thuộc tính vào cột TableColumn
             colStt.setCellValueFactory(cellData -> cellData.getValue().sttProperty().asObject());
@@ -120,6 +146,19 @@ public class MainAuctionController {
         } catch (Exception e) {
             System.err.println("[MainController] Initialize lỗi: " + e.getMessage());
         }
+        // Ẩn/hiện theo role
+        String role = UserManager.getInstance().getCurrentUser().getRole();
+        boolean isSeller = "SELLER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role);
+        boolean isBidder = "BIDDER".equalsIgnoreCase(role);
+
+        btnSellerCenter.setVisible(isSeller || "ADMIN".equalsIgnoreCase(role));
+        btnSellerCenter.setManaged(isSeller || "ADMIN".equalsIgnoreCase(role));
+
+        // Ẩn nút tạo phiên và quản lý sản phẩm với Bidder
+        btnCreateAuction.setVisible(isSeller);
+        btnCreateAuction.setManaged(isSeller);
+        btnMyProducts.setVisible(isSeller);
+        btnMyProducts.setManaged(isSeller);
     }
 
     private void updatePaginationLabel(int filteredSize) {
@@ -358,7 +397,23 @@ public class MainAuctionController {
             lblLiveCount.setText(String.valueOf(rows.size()));
             updatePaginationLabel(rows.size());
             startLiveCountdown();   // Khởi động timer đếm ngược realtime
+            // Nếu đang filter thì áp lại filter sau khi load
+            if (isFilteringActive) filterActiveOnly();
         });
+    }
+    private boolean isFilteringActive = false;
+
+    private void filterActiveOnly() {
+        ObservableList<AuctionRow> filtered = FXCollections.observableArrayList();
+        for (AuctionRow row : auctionData) {
+            String s = row.getStatus();
+            if ("RUNNING".equalsIgnoreCase(s) || "EXTENDED".equalsIgnoreCase(s)) {
+                filtered.add(row);
+            }
+        }
+        auctionTable.setItems(filtered);
+        lblLiveCount.setText(String.valueOf(filtered.size()));
+        updatePaginationLabel(filtered.size());
     }
 
     // -------------------------------------------------------------------------
@@ -451,6 +506,43 @@ public class MainAuctionController {
         loadAuctionDataAsync();
     }
 
+    @FXML
+    void handleDashboard(ActionEvent event) {
+        // Reset filter, hiện tất cả phiên
+        isFilteringActive = false;
+        loadAuctionDataAsync();
+        // Đổi style active
+        btnDashboard.getStyleClass().add("active");
+        btnActiveAuctions.getStyleClass().remove("active");
+    }
+
+    @FXML
+    void handleActiveAuctions(ActionEvent event) {
+        // Lọc chỉ hiện RUNNING và EXTENDED
+        isFilteringActive = true;
+        filterActiveOnly();
+        // Đổi style active
+        btnActiveAuctions.getStyleClass().add("active");
+        btnDashboard.getStyleClass().remove("active");
+    }
+
+    @FXML
+    void handleToggleNotification(ActionEvent event) {
+        if (notificationPopup == null) return;
+        boolean showing = notificationPopup.isVisible();
+        notificationPopup.setVisible(!showing);
+        notificationPopup.setManaged(!showing);
+    }
+
+    private void updateBellBadge(int count) {
+        if (lblBadge == null) return;
+        if (count > 0) {
+            lblBadge.setText(count > 99 ? "99+" : String.valueOf(count));
+            lblBadge.setVisible(true);
+        } else {
+            lblBadge.setVisible(false);
+        }
+    }
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------

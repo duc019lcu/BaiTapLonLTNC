@@ -32,6 +32,7 @@ public class NetworkClient {
     private PrintWriter  out;
     private BufferedReader in;
     private MessageListener listener;
+    private java.util.function.Consumer<String> notificationListener;
     private Thread listenerThread;
     private final java.util.concurrent.BlockingQueue<String> responseQueue = new java.util.concurrent.LinkedBlockingQueue<>();
 
@@ -142,6 +143,10 @@ public class NetworkClient {
     public void setListener(MessageListener listener) {
         this.listener = listener;
     }
+    
+    public void setNotificationListener(java.util.function.Consumer<String> listener) {
+    this.notificationListener = listener;
+    }
 
     /**
      * Bắt đầu vòng lặp đọc broadcast trên daemon thread.
@@ -157,9 +162,10 @@ public class NetworkClient {
                 while ((line = in.readLine()) != null) {
                     final String msg = line;
                     if (msg.startsWith("CAP_NHAT|")) {
-                        if (listener != null) {
-                            listener.onMessageReceived(msg);
-                        }
+                        if (listener != null) listener.onMessageReceived(msg);
+                    } else if (msg.startsWith("PUSH_NOTIFICATION|")) {
+                        if (notificationListener != null)
+                            notificationListener.accept(msg.substring("PUSH_NOTIFICATION|".length()));
                     } else {
                         responseQueue.offer(msg);
                     }

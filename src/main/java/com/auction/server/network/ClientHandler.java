@@ -11,6 +11,8 @@ import com.auction.domain.AuctionSession;
 import com.auction.domain.AuctionStatus;
 import com.auction.server.dao.ItemDAO;
 import com.auction.server.dao.UserDAO;
+import com.auction.server.service.NotificationService;
+import com.auction.server.dao.NotificationDAO;
 
 import java.io.*;
 import java.net.Socket;
@@ -39,10 +41,13 @@ public class ClientHandler implements Runnable {
     private final Socket       socket;
     private final AuctionServer server;
     private PrintWriter        out;
+    private String loggedInUserId;
+    private final NotificationService notiService;
 
     public ClientHandler(Socket socket, AuctionServer server) {
         this.socket = socket;
         this.server = server;
+        this.notiService = new NotificationService(server);
     }
 
     /** Gửi tin nhắn chủ động tới client (dùng cho broadcast). */
@@ -101,6 +106,9 @@ public class ClientHandler implements Runnable {
             case "UPDATE_AUCTION"  -> processUpdateAuction(parts, manager);
             case "QUIT"            -> "TAM_BIET";
             case "GET_PROFILE" -> processGetProfile(parts);
+            case "GET_MY_BIDS" -> processGetMyBids(parts);
+            case "GET_NOTIFICATIONS"       -> processGetNotifications(parts);
+            case "MARK_NOTIFICATIONS_READ" -> processMarkNotificationsRead(parts);
             default                -> "LOI|Lenh khong hop le: " + command;
         };
     }
@@ -123,7 +131,8 @@ public class ClientHandler implements Runnable {
             // Xác thực BCrypt — tương thích ngược: nếu hash bắt đầu bằng '$2' thì là BCrypt
             boolean valid = isPasswordValid(parts[2], user.getPassword());
             if (!valid) return "LOGIN_FAILED|Sai tai khoan hoac mat khau";
-
+            this.loggedInUserId = user.getId();
+            server.registerUser(user.getId(), this);
             return "LOGIN_SUCCESS|" + user.getRole() + "|" + user.getId()
                     + "|" + user.getFullName() + "|" + user.getEmail();
 
@@ -500,6 +509,7 @@ public class ClientHandler implements Runnable {
 
     /** Giải phóng tài nguyên khi client ngắt kết nối. */
     private void cleanup() {
+        server.unregisterUser(loggedInUserId);
         server.removeClient(this);
         try {
             if (!socket.isClosed()) socket.close();
@@ -521,5 +531,90 @@ public class ClientHandler implements Runnable {
         } catch (Exception e) {
             return "LOI|Loi lay profile: " + e.getMessage();
         }
+    }
+    /**
+     * GET_MY_BIDS|bidderId
+     * → MY_BIDS|auctionId;itemName;bidAmount;status|...
+     */
+    private String processGetMyBids(String[] parts) {
+        if (parts.length != 2) return "LOI|Dinh dang: GET_MY_BIDS|bidderId";
+        try {
+            // Lấy tất cả bid của bidder này
+            String sql = """
+                SELECT bt.auction_id, COALESCE(i.name, bt.auction_id) as item_name,
+                    bt.bid_amount, s.status
+                FROM bid_transactions bt
+                LEFT JOIN auction_sessions s ON bt.auction_id = s.auction_id
+                LEFT JOIN items i ON s.item_id = i.id
+                WHERE bt.bidder_id = ?
+                ORDER BY bt.bid_time DESC
+                """;
+
+            java.util.Map<String, String[]> latest = new java.util.LinkedHashMap<>();
+            try (var conn = com.auction.server.util.DatabaseUtil.getInstance().getConnection();
+                var stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, parts[1]);
+                var rs = stmt.executeQuery();
+                while (rs.next()) {
+                    String aid = rs.getString("auction_id");
+                    // Chỉ giữ bid mới nhất mỗi phiên
+                    if (!latest.containsKey(aid)) {
+                        latest.put(aid, new String[]{
+                            aid,
+                            rs.getString("item_name"),
+                            String.valueOf(rs.getDouble("bid_amount")),
+                            rs.getString("status")
+                        });
+                    }
+                }
+            }
+
+            if (latest.isEmpty()) return "MY_BIDS|trong";
+
+            StringBuilder sb = new StringBuilder("MY_BIDS");
+            for (var entry : latest.values()) {
+                sb.append("|")
+                .append(entry[0]).append(";")
+                .append(entry[1]).append(";")
+                .append(entry[2]).append(";")
+                .append(entry[3]);
+            }
+            return sb.toString();
+
+        } catch (Exception e) {
+            return "LOI|Loi lay my bids: " + e.getMessage();
+        }
+    }
+
+    private String processGetNotifications(String[] parts) {
+        if (parts.length != 2) return "LOI|Dinh dang: GET_NOTIFICATIONS|userId";
+        try {
+            var list = new NotificationDAO().getByUser(parts[1]);
+            if (list.isEmpty()) return "NOTIFICATIONS|trong";
+            StringBuilder sb = new StringBuilder("NOTIFICATIONS");
+            for (String[] n : list) {
+                // id;type;content;auctionId;isRead;createdAt
+                sb.append("|")
+                .append(n[0]).append(";")
+                .append(n[1]).append(";")
+                .append(n[2]).append(";")
+                .append(n[3]).append(";")
+                .append(n[4]).append(";")
+                .append(n[5]);
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "LOI|" + e.getMessage();
+        }
+    }
+
+    private String processMarkNotificationsRead(String[] parts) {
+        if (parts.length != 2) return "LOI|Dinh dang: MARK_NOTIFICATIONS_READ|userId";
+        try {
+            new NotificationDAO().markAllRead(parts[1]);
+        } catch (Exception e) {
+            return "LOI|" + e.getMessage();
+        }
+        return "MARK_READ_SUCCESS";
     }
 }

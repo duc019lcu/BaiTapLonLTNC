@@ -3,6 +3,8 @@ package com.auction.server.network;
 import com.auction.domain.AuctionManager;
 import com.auction.server.util.DatabaseUtil;
 
+import at.favre.lib.crypto.bcrypt.BCrypt;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
@@ -17,6 +19,9 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import com.auction.server.dao.NotificationDAO;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Server lắng nghe kết nối TCP từ các client đấu giá.
@@ -30,6 +35,7 @@ public class AuctionServer {
 
     private final int          port;
     private final Set<ClientHandler> clients    = Collections.synchronizedSet(new HashSet<>());
+    private final Map<String, ClientHandler> onlineUsers = new ConcurrentHashMap<>();
     private final ExecutorService    threadPool = Executors.newFixedThreadPool(50);
 
     public AuctionServer(int port) {
@@ -96,6 +102,19 @@ public class AuctionServer {
         clients.remove(handler);
     }
 
+    public void sendToUser(String userId, String message) {
+    ClientHandler handler = onlineUsers.get(userId);
+    if (handler != null) handler.sendMessage(message);
+    }
+
+    public void registerUser(String userId, ClientHandler handler) {
+        onlineUsers.put(userId, handler);
+    }
+    
+    public void unregisterUser(String userId) {
+        if (userId != null) onlineUsers.remove(userId);
+    }
+
     // -------------------------------------------------------------------------
     // Dữ liệu mẫu cho demo
     // -------------------------------------------------------------------------
@@ -121,8 +140,11 @@ public class AuctionServer {
 
             com.auction.server.dao.UserDAO userDAO = new com.auction.server.dao.UserDAO();
             if (userDAO.getUserByUsername("admin") == null) {
+                String hashedAdmin = BCrypt.withDefaults()
+                        .hashToString(12, "Admin@2026".toCharArray());
                 userDAO.saveUser(new com.auction.common.models.Admin(
-                        "ADMIN1", "admin", "admin123", "Quản trị viên", "admin@auction.com"));
+                        "ADMIN1", "admin", hashedAdmin, "Quan tri vien", "admin@auction.com"));
+                System.out.println("[SERVER] Da tao tai khoan Admin mac dinh (admin/Admin@2026)");
             }
             if (userDAO.getUserByUsername("SELLER1") == null) {
                 userDAO.saveUser(new com.auction.common.models.Seller(
@@ -205,7 +227,8 @@ public class AuctionServer {
                         bid_amount DOUBLE      NOT NULL,
                         bid_time   DATETIME    NOT NULL
                     )""");
-
+            // Thêm cột frozen_amount
+            new NotificationDAO().createTableIfNotExists();
             // Thêm cột frozen_amount nếu DB cũ chưa có (migration an toàn)
             try {
                 stmt.executeUpdate(
