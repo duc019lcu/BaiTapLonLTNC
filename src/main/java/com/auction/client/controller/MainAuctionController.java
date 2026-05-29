@@ -406,6 +406,12 @@ public class MainAuctionController {
         UserManager.getInstance().setCurrentUser(null);
         SceneUtil.changeScene(event, "Login.fxml", "Đăng nhập");
     }
+    
+    @FXML
+    void handleProfile(ActionEvent event) {
+        if (liveCountdownTimer != null) liveCountdownTimer.cancel();
+        SceneUtil.changeScene(event, "Profile.fxml", "Hồ sơ cá nhân");
+    }
 
     @FXML
     void handleCreateAuction(ActionEvent event) {

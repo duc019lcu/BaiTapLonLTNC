@@ -22,7 +22,7 @@
                 <Button text="Dashboard" styleClass="sidebar-nav-item, active" />
                 <Button text="Active Auctions" styleClass="sidebar-nav-item" />
                 <Button text="My Bids" styleClass="sidebar-nav-item" />
-                <Button text="Seller Center" styleClass="sidebar-nav-item" />
+                <Button text="Seller Center" onAction="#handleMyProducts" styleClass="sidebar-nav-item" />
                 
                 <Region VBox.vgrow="ALWAYS" />
                 
@@ -48,6 +48,10 @@
             <!-- User Info and Logout -->
             <HBox spacing="15" alignment="CENTER_LEFT">
                 <Label fx:id="lblWelcome" text="Xin chào, User" styleClass="header-user" />
+                <Button text="👤 Hồ sơ" onAction="#handleProfile"
+                    style="-fx-background-color: #1e3a5f; -fx-text-fill: white;
+                            -fx-font-weight: bold; -fx-background-radius: 8;
+                            -fx-padding: 8 16 8 16; -fx-cursor: hand;"/>
                 <Button text="Logout" onAction="#handleLogout" styleClass="btn-danger-logout" />
             </HBox>
         </HBox>

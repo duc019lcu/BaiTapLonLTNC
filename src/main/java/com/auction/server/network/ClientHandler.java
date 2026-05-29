@@ -100,6 +100,7 @@ public class ClientHandler implements Runnable {
             case "DELETE_AUCTION"  -> processDeleteAuction(parts, manager);
             case "UPDATE_AUCTION"  -> processUpdateAuction(parts, manager);
             case "QUIT"            -> "TAM_BIET";
+            case "GET_PROFILE" -> processGetProfile(parts);
             default                -> "LOI|Lenh khong hop le: " + command;
         };
     }
@@ -503,5 +504,22 @@ public class ClientHandler implements Runnable {
         try {
             if (!socket.isClosed()) socket.close();
         } catch (IOException ignored) { }
+    }
+    /**
+     * GET_PROFILE|bidderId
+     * → PROFILE_SUCCESS|balance|frozenAmount
+     */
+    private String processGetProfile(String[] parts) {
+        if (parts.length != 2) return "LOI|Dinh dang: GET_PROFILE|bidderId";
+        try {
+            User user = new UserDAO().findById(parts[1]);
+            if (!(user instanceof Bidder bidder))
+                return "LOI|Khong tim thay Bidder: " + parts[1];
+            return "PROFILE_SUCCESS|"
+                    + bidder.getWallet().getBalance() + "|"
+                    + bidder.getWallet().getFrozenAmount();
+        } catch (Exception e) {
+            return "LOI|Loi lay profile: " + e.getMessage();
+        }
     }
 }
