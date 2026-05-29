@@ -229,6 +229,23 @@ public class AuctionServer {
                     )""");
             // Thêm cột frozen_amount
             new NotificationDAO().createTableIfNotExists();
+            // Bảng activity log
+            try {
+                stmt.executeUpdate("""
+                        CREATE TABLE IF NOT EXISTS activity_log (
+                            id         INT AUTO_INCREMENT PRIMARY KEY,
+                            user_id    VARCHAR(50)  NOT NULL,
+                            action     VARCHAR(100) NOT NULL,
+                            detail     TEXT,
+                            created_at DATETIME     NOT NULL
+                        )""");
+            } catch (Exception ignored) {}
+
+            // Cột is_banned cho bảng users
+            try {
+                stmt.executeUpdate(
+                        "ALTER TABLE users ADD COLUMN is_banned TINYINT(1) DEFAULT 0");
+            } catch (Exception ignored) {}
             // Thêm cột frozen_amount nếu DB cũ chưa có (migration an toàn)
             try {
                 stmt.executeUpdate(

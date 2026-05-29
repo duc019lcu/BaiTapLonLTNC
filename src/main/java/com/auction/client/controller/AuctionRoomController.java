@@ -225,7 +225,11 @@ public class AuctionRoomController {
                     Platform.runLater(() -> {
                         lblTimer.setText(formatTime(secondsRemaining));
                         if (secondsRemaining <= 30) {
-                            lblTimer.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
+                            lblTimer.setStyle("-fx-text-fill: #ef4444; -fx-font-size: 28px; -fx-font-weight: bold;");
+                        } else if (secondsRemaining <= 300) {
+                            lblTimer.setStyle("-fx-text-fill: #f59e0b; -fx-font-size: 28px; -fx-font-weight: bold;");
+                        } else {
+                            lblTimer.setStyle("-fx-text-fill: #10b981; -fx-font-size: 28px; -fx-font-weight: bold;");
                         }
                     });
                 } else {
@@ -264,7 +268,7 @@ public class AuctionRoomController {
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
         confirm.setTitle("Xác nhận đặt giá");
         confirm.setHeaderText(null);
-        confirm.setContentText(String.format("Bạn chắc chắn muốn đặt %,.0f \u20ab không?", amount));
+        confirm.setContentText(String.format("Bạn chắc chắn muốn đặt %,.0f \u20ab không?", bidAmount));
         confirm.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
                 submitBid(bidAmount);
@@ -399,13 +403,37 @@ public class AuctionRoomController {
     // Kết thúc phiên
     // -------------------------------------------------------------------------
     private void onAuctionFinished() {
-        if (countdownTimer != null) countdownTimer.cancel();
-        secondsRemaining = 0;
-        lblTimer.setText("ĐÃ KẾT THÚC");
-        if (lblWinnerTitle != null) lblWinnerTitle.setText("🏆 NGƯỜI CHIẾN THẮNG");
-        txtBidAmount.setDisable(true);
-        disableAutoBid();
+    if (countdownTimer != null) countdownTimer.cancel();
+    secondsRemaining = 0;
+    lblTimer.setText("ĐÃ KẾT THÚC");
+    lblTimer.setStyle("-fx-text-fill: #ef4444; -fx-font-weight: bold;");
+    if (lblWinnerTitle != null) lblWinnerTitle.setText("🏆 NGƯỜI CHIẾN THẮNG");
+    txtBidAmount.setDisable(true);
+    disableAutoBid();
+
+    // Hiện banner kết quả cho người dùng hiện tại
+    String currentUsername = UserManager.getInstance().getCurrentUser() != null
+            ? UserManager.getInstance().getCurrentUser().getUsername() : "";
+    String winner = lblWinner.getText();
+
+    Alert result = new Alert(Alert.AlertType.INFORMATION);
+    result.setHeaderText(null);
+    if (!winner.isBlank() && winner.equals(currentUsername)) {
+        result.setTitle("Chúc mừng!");
+        result.setContentText("🏆 Bạn đã thắng phiên đấu giá!\nSản phẩm: "
+                + lblItemName.getText()
+                + "\nGiá thắng: " + String.format("%,.0f \u20ab", currentPrice));
+    } else if (!winner.isBlank()) {
+        result.setTitle("Phiên đấu giá kết thúc");
+        result.setContentText("Phiên đấu giá đã kết thúc.\nNgười thắng: "
+                + winner
+                + "\nGiá thắng: " + String.format("%,.0f \u20ab", currentPrice));
+    } else {
+        result.setTitle("Phiên đấu giá kết thúc");
+        result.setContentText("Phiên đấu giá đã kết thúc mà không có người thắng.");
     }
+    result.show();
+}
 
     private void disableAutoBid() {
         isAutoBidEnabled = false;

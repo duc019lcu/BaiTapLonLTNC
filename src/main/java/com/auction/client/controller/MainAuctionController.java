@@ -27,6 +27,8 @@ import java.time.LocalDateTime;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.TextInputDialog;
 /**
  * Controller màn hình danh sách phiên đấu giá.
  *
@@ -65,6 +67,9 @@ public class MainAuctionController {
     @FXML private Label                  lblBadge;
     @FXML private NotificationController notificationPanelController;
     @FXML private VBox                   notificationPopup;
+
+    @FXML private Button btnBanUser;
+    @FXML private Button btnActivityLog;
 
     private final ObservableList<AuctionRow> auctionData = FXCollections.observableArrayList();
     private AuctionRow selectedAuction;
@@ -159,6 +164,11 @@ public class MainAuctionController {
         btnCreateAuction.setManaged(isSeller);
         btnMyProducts.setVisible(isSeller);
         btnMyProducts.setManaged(isSeller);
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(role);
+        btnBanUser.setVisible(isAdmin);
+        btnBanUser.setManaged(isAdmin);
+        btnActivityLog.setVisible(isAdmin);
+        btnActivityLog.setManaged(isAdmin);
     }
 
     private void updatePaginationLabel(int filteredSize) {
@@ -524,6 +534,53 @@ public class MainAuctionController {
         // Đổi style active
         btnActiveAuctions.getStyleClass().add("active");
         btnDashboard.getStyleClass().remove("active");
+    }
+    @FXML
+    void handleBanUser(ActionEvent event) {
+        // Dialog nhập username
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Ban / Unban User");
+        dialog.setHeaderText(null);
+        dialog.setContentText("Nhập username cần ban/unban:");
+        dialog.showAndWait().ifPresent(username -> {
+            if (username.isBlank()) return;
+
+            // Hỏi ban hay unban
+            Alert choice = new Alert(Alert.AlertType.CONFIRMATION);
+            choice.setTitle("Chọn hành động");
+            choice.setHeaderText("User: " + username);
+            ButtonType btnBan   = new ButtonType("🔨 Ban");
+            ButtonType btnUnban = new ButtonType("✅ Unban");
+            ButtonType btnCancel = new ButtonType("Hủy", ButtonBar.ButtonData.CANCEL_CLOSE);
+            choice.getButtonTypes().setAll(btnBan, btnUnban, btnCancel);
+            choice.showAndWait().ifPresent(btn -> {
+                if (btn == btnBan || btn == btnUnban) {
+                    boolean isBan = btn == btnBan;
+                    new Thread(() -> {
+                        String res = NetworkClient.getInstance()
+                                .sendRequest("BAN_USER|" + username + "|" + isBan);
+                        Platform.runLater(() -> {
+                            Alert result = new Alert(Alert.AlertType.INFORMATION);
+                            result.setHeaderText(null);
+                            if (res.startsWith("BAN_SUCCESS")) {
+                                result.setContentText("Da ban user: " + username);
+                            } else if (res.startsWith("UNBAN_SUCCESS")) {
+                                result.setContentText("Da unban user: " + username);
+                            } else {
+                                result.setContentText("That bai: " + res);
+                            }
+                            result.show();
+                        });
+                    }).start();
+                }
+            });
+        });
+    }
+
+    @FXML
+    void handleActivityLog(ActionEvent event) {
+        if (liveCountdownTimer != null) liveCountdownTimer.cancel();
+        SceneUtil.changeScene(event, "ActivityLog.fxml", "Activity Log");
     }
 
     @FXML

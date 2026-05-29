@@ -109,6 +109,8 @@ public class ClientHandler implements Runnable {
             case "GET_MY_BIDS" -> processGetMyBids(parts);
             case "GET_NOTIFICATIONS"       -> processGetNotifications(parts);
             case "MARK_NOTIFICATIONS_READ" -> processMarkNotificationsRead(parts);
+            case "BAN_USER"        -> processBanUser(parts);
+            case "GET_ACTIVITY_LOG" -> processGetActivityLog(parts);
             default                -> "LOI|Lenh khong hop le: " + command;
         };
     }
@@ -204,6 +206,7 @@ public class ClientHandler implements Runnable {
                     + "|trang_thai=" + session.getStatus()
                     + "|end_time=" + nullSafe(session.getEndTime());
             server.broadcast(broadcast);
+            logActivity(parts[2], "PLACE_BID", "Phien: " + parts[1] + " | Gia: " + amount);
             return "CHAP_NHAN|" + statusInfo;
         }
         return "TU_CHOI|" + statusInfo;
@@ -301,6 +304,7 @@ public class ClientHandler implements Runnable {
                 parts[1], parts[2], parts[3], parts[4], startPrice, startTime, endTime);
         if (!created) return "LOI|Ma phien da ton tai: " + parts[1];
 
+        logActivity(parts[4], "CREATE_AUCTION", "Phien: " + parts[1] + " | San pham: " + parts[3]);
         return "CREATE_AUCTION_SUCCESS|" + parts[1];
     }
 
@@ -464,6 +468,7 @@ public class ClientHandler implements Runnable {
         // Broadcast kết thúc tới tất cả client
         server.broadcast("CAP_NHAT|id=" + parts[1]
                 + "|trang_thai=FINISHED|gia_hien_tai=0|nguoi_dan_dau=");
+        logActivity("ADMIN", "CLOSE_SESSION", "Phien: " + parts[1]);
         return "CLOSE_SESSION_SUCCESS|" + parts[1];
     }
 
@@ -485,6 +490,7 @@ public class ClientHandler implements Runnable {
             if (!(user instanceof Bidder bidder)) return "LOI|Khong tim thay Bidder: " + parts[1];
             bidder.getWallet().deposit(amount);
             userDAO.saveUser(bidder);
+            logActivity(parts[1], "DEPOSIT", "So tien: " + amount);
             return "DEPOSIT_SUCCESS|" + bidder.getWallet().getBalance();
         } catch (Exception e) {
             return "LOI|Loi nap tien: " + e.getMessage();
@@ -616,5 +622,75 @@ public class ClientHandler implements Runnable {
             return "LOI|" + e.getMessage();
         }
         return "MARK_READ_SUCCESS";
+    }
+
+        /**
+     * BAN_USER|targetUsername|ban (true/false)
+     */
+    private String processBanUser(String[] parts) {
+        if (parts.length != 3) return "LOI|Dinh dang: BAN_USER|username|true/false";
+        try {
+            UserDAO userDAO = new UserDAO();
+            User target = userDAO.getUserByUsername(parts[1]);
+            if (target == null) return "LOI|Khong tim thay user: " + parts[1];
+            boolean ban = Boolean.parseBoolean(parts[2]);
+            try (var conn = com.auction.server.util.DatabaseUtil.getInstance().getConnection();
+                var stmt = conn.prepareStatement(
+                        "UPDATE users SET is_banned = ? WHERE username = ?")) {
+                stmt.setInt(1, ban ? 1 : 0);
+                stmt.setString(2, parts[1]);
+                stmt.executeUpdate();
+            }
+            // Ghi log
+            logActivity("ADMIN", ban ? "BAN_USER" : "UNBAN_USER", "Target: " + parts[1]);
+            return ban ? "BAN_SUCCESS|" + parts[1] : "UNBAN_SUCCESS|" + parts[1];
+        } catch (Exception e) {
+            return "LOI|" + e.getMessage();
+        }
+    }
+
+    /**
+     * GET_ACTIVITY_LOG — lấy 100 log gần nhất
+     */
+    private String processGetActivityLog(String[] parts) {
+        try {
+            String sql = """
+                    SELECT user_id, action, detail, created_at
+                    FROM activity_log
+                    ORDER BY created_at DESC
+                    LIMIT 100
+                    """;
+            StringBuilder sb = new StringBuilder("ACTIVITY_LOG");
+            try (var conn = com.auction.server.util.DatabaseUtil.getInstance().getConnection();
+                var stmt = conn.prepareStatement(sql);
+                var rs   = stmt.executeQuery()) {
+                while (rs.next()) {
+                    sb.append("|")
+                    .append(rs.getString("user_id")).append(";")
+                    .append(rs.getString("action")).append(";")
+                    .append(rs.getString("detail") != null ? rs.getString("detail") : "").append(";")
+                    .append(rs.getString("created_at"));
+                }
+            }
+            return sb.length() == "ACTIVITY_LOG".length()
+                    ? "ACTIVITY_LOG|trong" : sb.toString();
+        } catch (Exception e) {
+            return "LOI|" + e.getMessage();
+        }
+    }
+
+    private void logActivity(String userId, String action, String detail) {
+        try {
+            String sql = "INSERT INTO activity_log (user_id, action, detail, created_at) VALUES (?, ?, ?, ?)";
+            try (var conn = com.auction.server.util.DatabaseUtil.getInstance().getConnection();
+                var stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, userId);
+                stmt.setString(2, action);
+                stmt.setString(3, detail);
+                stmt.setString(4, java.time.LocalDateTime.now()
+                        .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                stmt.executeUpdate();
+            }
+        } catch (Exception ignored) {}
     }
 }
