@@ -9,6 +9,7 @@ import javafx.fxml.FXML;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
@@ -260,7 +261,15 @@ public class AuctionRoomController {
             return;
         }
 
-        submitBid(bidAmount);
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Xác nhận đặt giá");
+        confirm.setHeaderText(null);
+        confirm.setContentText(String.format("Bạn chắc chắn muốn đặt %,.0f \u20ab không?", amount));
+        confirm.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                submitBid(bidAmount);
+            }
+        });
         txtBidAmount.clear();
     }
 
