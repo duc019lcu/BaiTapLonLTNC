@@ -12,6 +12,12 @@ import javafx.scene.control.DatePicker;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.TextField;
 
+import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.stage.FileChooser;
+import java.io.File;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -47,6 +53,14 @@ public class CreateAuctionController {
 
     @FXML
     private ComboBox<String> cbEndMinute;
+
+    @FXML 
+    private Label     lblImagePath;
+    
+    @FXML 
+    private ImageView imgPreview;
+    
+    private File selectedImageFile;
 
     @FXML
     public void initialize() {
@@ -180,5 +194,21 @@ public class CreateAuctionController {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    @FXML
+    void handleChooseImage(ActionEvent event) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Chon anh san pham");
+        fileChooser.getExtensionFilters().addAll(
+            new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg", "*.gif")
+        );
+        File file = fileChooser.showOpenDialog(txtItemName.getScene().getWindow());
+        if (file != null) {
+            selectedImageFile = file;
+            lblImagePath.setText(file.getName());
+            lblImagePath.setStyle("-fx-text-fill: #10b981; -fx-font-size: 13px;");
+            imgPreview.setImage(new Image(file.toURI().toString()));
+        }
     }
 }

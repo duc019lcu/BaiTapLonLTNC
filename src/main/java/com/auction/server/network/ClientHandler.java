@@ -191,7 +191,20 @@ public class ClientHandler implements Runnable {
         } catch (NumberFormatException e) {
             return "LOI|So tien dat gia phai la so";
         }
-
+        // Kiểm tra ví đủ tiền
+        try {
+            User bidder = new UserDAO().findById(parts[2]);
+            if (bidder instanceof Bidder b) {
+                double available = b.getWallet().getBalance() - b.getWallet().getFrozenAmount();
+                if (available < amount) {
+                    return "TU_CHOI|Vi khong du tien. So du kha dung: "
+                            + String.format("%,.0f", available);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[SERVER] Loi kiem tra vi: " + e.getMessage());
+        }
+        
         boolean success = manager.placeBid(parts[1], parts[2], amount);
         AuctionSession session = manager.getSession(parts[1]);
         if (session == null) return "LOI|Khong tim thay phien dau gia: " + parts[1];

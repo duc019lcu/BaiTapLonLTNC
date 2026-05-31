@@ -250,6 +250,12 @@ public class AuctionRoomController {
     @FXML
     void handlePlaceBid(ActionEvent event) {
         if (secondsRemaining <= 0 || selectedAuctionId == null) return;
+        // Chỉ Bidder mới được đặt giá
+        String role = UserManager.getInstance().getCurrentUser().getRole();
+        if (!"BIDDER".equalsIgnoreCase(role)) {
+            showAlert("Không có quyền", "Chi Bidder moi duoc dat gia!");
+            return;
+}
 
         double bidAmount;
         try {
