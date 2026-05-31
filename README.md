@@ -3,235 +3,70 @@
 > **Bài tập lớn — Lập trình nâng cao**  
 > Trường Đại học Công nghệ — ĐHQGHN
 
-[![CI](https://github.com/YOUR_ORG/BaiTapLonLTNC/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_ORG/BaiTapLonLTNC/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-17-orange?logo=openjdk)](https://adoptium.net/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-21-blue)](https://openjfx.io/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0-blue?logo=mysql)](https://www.mysql.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Maven](https://img.shields.io/badge/Maven-3.8+-red?logo=apachemaven)](https://maven.apache.org/)
 
 ---
 
 ## 📖 Mục lục
 
-1. [Giới thiệu](#giới-thiệu)
-2. [Kiến trúc hệ thống](#kiến-trúc-hệ-thống)
-3. [Design Patterns](#design-patterns)
-4. [Cây kế thừa OOP](#cây-kế-thừa-oop)
-5. [Tính năng](#tính-năng)
-6. [Hướng dẫn chạy](#hướng-dẫn-chạy)
-7. [Cấu trúc thư mục](#cấu-trúc-thư-mục)
-8. [Phân công nhiệm vụ](#phân-công-nhiệm-vụ)
-9. [Chấm điểm tự đánh giá](#chấm-điểm-tự-đánh-giá)
+1. [Mô tả bài toán](#mô-tả-bài-toán)
+2. [Công nghệ & Môi trường](#công-nghệ--môi-trường)
+3. [Yêu cầu cài đặt](#yêu-cầu-cài-đặt)
+4. [Cấu trúc thư mục](#cấu-trúc-thư-mục)
+5. [Hướng dẫn chạy](#hướng-dẫn-chạy)
+6. [Chức năng đã hoàn thành](#chức-năng-đã-hoàn-thành)
+7. [Báo cáo & Demo](#báo-cáo--demo)
 
 ---
 
-## Giới thiệu
+## Mô tả bài toán
 
-Hệ thống đấu giá trực tuyến cho phép nhiều người dùng đồng thời cạnh tranh giá để mua sản phẩm trong thời gian xác định, tương tự mô hình [eBay Auctions](https://www.ebay.com/b/bn_7000000718).
+Hệ thống đấu giá trực tuyến theo kiến trúc **Client–Server**, cho phép nhiều người dùng đồng thời tham gia đấu giá sản phẩm theo thời gian thực. Hệ thống hỗ trợ ba vai trò: **Bidder** (người đặt giá), **Seller** (người đăng sản phẩm) và **Admin** (quản trị viên).
 
-**Điểm nổi bật:**
-- Kiến trúc **Client–Server** qua TCP Socket, giao tiếp bằng giao thức text tự định nghĩa
-- **Realtime update** toàn bộ client khi có bid mới (không dùng polling)
-- **Anti-sniping**: Tự động gia hạn phiên nếu có bid trong 30 giây cuối
-- **HikariCP Connection Pool**: Xử lý 50 client đồng thời an toàn
-- **BCrypt**: Mã hóa mật khẩu chuẩn công nghiệp
-- **Wallet Freeze/Release**: Tạm khóa tiền khi đặt cọc, hoàn tiền tự động khi bị vượt mặt
-
----
-
-## Kiến trúc hệ thống
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        CLIENT (JavaFX)                          │
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐    │
-│  │  Login /     │   │  Main Auction│   │  Auction Room    │    │
-│  │  Register    │   │  (Danh sách) │   │  (Realtime bid)  │    │
-│  │  Controller  │   │  Controller  │   │  + LineChart     │    │
-│  └──────┬───────┘   └──────┬───────┘   └────────┬─────────┘    │
-│         │                  │                     │              │
-│         └──────────────────┼─────────────────────┘             │
-│                            │ NetworkClient (Singleton)          │
-│                            │ TCP Socket :9999                   │
-└────────────────────────────┼────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│                        SERVER                                   │
-│  AuctionServer ──► ThreadPool (50 threads)                      │
-│         │                │                                      │
-│         ▼                ▼                                      │
-│  ClientHandler ──► AuctionManager (Singleton)                   │
-│  (per client)            │                                      │
-│                    ┌─────┴──────────────────┐                   │
-│                    │                        │                   │
-│              AuctionSession          Wallet Logic               │
-│              (Domain Logic)         (Freeze/Release)            │
-│                    │                        │                   │
-│              ┌─────▼─────────────────────▼──┤                   │
-│              │         DAO Layer            │                   │
-│              │  UserDAO  AuctionDAO ItemDAO │                   │
-│              └─────────────────────────────┘                   │
-│                          │                                      │
-│                    HikariCP Pool (20 connections)               │
-│                          │                                      │
-│                     MySQL 8.0                                   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Luồng xử lý Bid
-
-```
-Client           NetworkClient       Server            AuctionManager
-  │                   │                │                    │
-  │── PLACE_BID ──────►                │                    │
-  │                   │── TCP send ───►│                    │
-  │                   │                │── placeBid() ─────►│
-  │                   │                │                    │── session.processBid()
-  │                   │                │                    │   (synchronized)
-  │                   │                │                    │── wallet.freeze(newBidder)
-  │                   │                │                    │── wallet.release(oldBidder)
-  │                   │                │                    │── auctionDAO.save()
-  │                   │                │◄── BidResult ──────│
-  │                   │                │── broadcast() ─────────────────► All Clients
-  │                   │◄── CHAP_NHAN──│                    │
-  │◄── update UI ─────│                │                    │
-```
+Phạm vi hệ thống bao gồm:
+- Quản lý tài khoản, xác thực và phân quyền người dùng
+- Quản lý sản phẩm đa loại (Electronics, Art, Fashion, Furniture)
+- Tạo và điều hành phiên đấu giá với đồng hồ đếm ngược
+- Đặt giá realtime, lịch sử bid, biểu đồ diễn biến giá
+- Ví điện tử với cơ chế tạm khóa/hoàn tiền tự động
+- Trang hồ sơ cá nhân (User Profile) và quản lý ví (Wallet)
+- Thông báo sự kiện và nhật ký hoạt động
 
 ---
 
-## Design Patterns
+## Công nghệ & Môi trường
 
-| Pattern | Lớp áp dụng | Mục đích |
-|---------|-------------|----------|
-| **Singleton** | `AuctionManager`, `DatabaseUtil`, `NetworkClient` | Đảm bảo chỉ có một instance, tránh tạo nhiều kết nối |
-| **Factory Method** | `ItemFactory` | Tạo `Item` đúng loại (Electronics/Art/Vehicle/...) theo `category`, tránh switch-case phân tán |
-| **Observer** | `NetworkClient.MessageListener` | Nhận broadcast realtime từ server mà không cần polling |
-| **Command / Value Object** | `BidResult` | Đóng gói kết quả đặt giá, tách logic nghiệp vụ khỏi tầng I/O |
-| **DAO (Repository)** | `UserDAO`, `AuctionDAO`, `ItemDAO` | Tách biệt logic DB khỏi domain |
+| Công nghệ | Phiên bản | Mục đích |
+|-----------|-----------|----------|
+| Java | 17 | Ngôn ngữ chính |
+| JavaFX | 21 | Giao diện đồ họa (GUI + FXML) |
+| MySQL | 8.0 | Cơ sở dữ liệu |
+| HikariCP | 5.1.0 | Connection Pool thread-safe |
+| BCrypt | 0.10.2 | Mã hóa mật khẩu |
+| JUnit 5 | 5.11.4 | Unit testing |
+| Maven | 3.8+ | Build & dependency management |
 
----
-
-## Cây kế thừa OOP
-
-```
-Entity (abstract — Serializable)
-│  └─ getId(), setId(), showDetail() [abstract], equals(), hashCode()
-│
-├── User (abstract)
-│   ├── Bidder ──── Wallet (freeze/release)
-│   ├── Seller
-│   └── Admin
-│
-└── Item (abstract)
-    ├── Electronics  ─ brand, model, serialNumber, warrantyDate
-    ├── Art          ─ artist, year, technique
-    ├── Vehicle      ─ brand, model, mileage
-    ├── Fashion      ─ brand, size, material
-    └── Furniture    ─ material, dimensions
-
-Domain:
-AuctionSession  ──── BidTransaction (immutable)
-AuctionManager  ──── AuctionSession (ConcurrentHashMap)
-AuctionStatus   (enum: OPEN → RUNNING ⇄ EXTENDED → FINISHED → PAID/CANCELED)
-BidResult       (DTO: success/rejected + refund info)
-```
-
-**Nguyên tắc OOP áp dụng:**
-
-| Nguyên tắc | Ví dụ cụ thể |
-|------------|--------------|
-| **Encapsulation** | `Wallet.freeze()` — ẩn logic tạm khóa; `AuctionSession.processBid()` — ẩn logic kiểm tra bid |
-| **Inheritance** | `Bidder`, `Seller`, `Admin` kế thừa `User`; `Electronics`, `Art` kế thừa `Item` |
-| **Polymorphism** | `showDetail()` được override ở mỗi lớp con; `ItemFactory.create()` trả `Item` đúng loại |
-| **Abstraction** | `Entity` và `Item` là abstract class; `MessageListener` là functional interface |
+**Giao tiếp mạng:** TCP Socket (cổng mặc định `9999`), giao thức text tự định nghĩa.
 
 ---
 
-## Tính năng
+## Yêu cầu cài đặt
 
-### Bắt buộc ✅
+Trước khi chạy, đảm bảo máy đã cài đặt:
 
-| Tính năng | Trạng thái | Ghi chú |
-|-----------|------------|---------|
-| Đăng ký / Đăng nhập | ✅ | BCrypt password hashing |
-| Phân quyền Bidder / Seller / Admin | ✅ | Hiển thị giao diện theo role |
-| Thêm / Xem sản phẩm | ✅ | Seller tạo item, hệ thống tạo phiên |
-| Đặt giá (bid) | ✅ | Kiểm tra hợp lệ, cập nhật winner |
-| Tự động đóng phiên hết giờ | ✅ | ScheduledExecutorService, 1s interval |
-| Xử lý lỗi & ngoại lệ | ✅ | Custom exceptions, try-with-resources |
-| GUI JavaFX + FXML | ✅ | Login, Main, AuctionRoom, CreateAuction |
-| Kiến trúc Client–Server | ✅ | TCP Socket, ThreadPool 50 threads |
-| MVC Client + Server | ✅ | FXML Controller / Controller→DAO |
-| Maven build | ✅ | pom.xml với HikariCP, BCrypt, JUnit 5 |
-| Unit Test JUnit 5 | ✅ | AuctionSessionTest, ManagerTest, WalletTest |
-| CI/CD GitHub Actions | ✅ | Build + Test + Upload artifact |
+- **JDK 17** trở lên — [Tải tại Adoptium](https://adoptium.net/)
+- **Maven 3.8+** — [Tải tại Apache Maven](https://maven.apache.org/download.cgi)
+- **MySQL 8.0+** — [Tải tại MySQL](https://dev.mysql.com/downloads/)
 
-### Nâng cao ✅
-
-| Tính năng | Trạng thái | Chi tiết |
-|-----------|------------|---------|
-| **Anti-sniping** | ✅ | Bid trong 30s cuối → gia hạn 60s, status = EXTENDED |
-| **Bid History Visualization** | ✅ | LineChart realtime (JavaFX Charts) |
-| **Auto-bidding** | ✅ | maxBid + increment tuỳ chỉnh, kích hoạt khi bị vượt mặt |
-| **Concurrent Bidding** | ✅ | `synchronized processBid()` + HikariCP pool |
-| **Realtime update** | ✅ | Observer pattern + server broadcast, không polling |
-| **Wallet Freeze/Release** | ✅ | Tạm khóa tiền bidder; hoàn tiền khi bị vượt mặt |
-
----
-
-## Hướng dẫn chạy
-
-### Yêu cầu
-
-- Java 17+
-- Maven 3.8+
-- MySQL 8.0+
-
-### Bước 1: Clone và cấu hình
+Kiểm tra phiên bản:
 
 ```bash
-git clone https://github.com/YOUR_ORG/BaiTapLonLTNC.git
-cd BaiTapLonLTNC
-```
-
-Tạo file `src/main/resources/config/application.properties`:
-
-```properties
-db.url=jdbc:mysql://localhost:3306/auction_system?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
-db.username=root
-db.password=your_mysql_password
-```
-
-> ⚠️ File này đã được thêm vào `.gitignore` — **không commit mật khẩu lên GitHub**.
-
-### Bước 2: Build
-
-```bash
-mvn clean compile
-```
-
-### Bước 3: Chạy Server
-
-```bash
-mvn exec:java -Dexec.mainClass="com.auction.server.network.AuctionServer"
-```
-
-Server tự động:
-- Tạo database `auction_system` nếu chưa có
-- Tạo tất cả bảng (bao gồm cột `frozen_amount`)
-- Tải phiên đấu giá từ DB
-- Lắng nghe ở cổng **9999**
-
-### Bước 4: Chạy Client (terminal khác)
-
-```bash
-mvn javafx:run
-```
-
-### Bước 5: Chạy Tests
-
-```bash
-mvn test
+java -version
+mvn -version
+mysql --version
 ```
 
 ---
@@ -241,131 +76,233 @@ mvn test
 ```
 BaiTapLonLTNC/
 ├── src/
-│   ├── main/java/com/auction/
-│   │   ├── common/                    # Dùng chung client + server
-│   │   │   ├── dto/
-│   │   │   │   └── BidResult.java     # DTO kết quả đặt giá (Command Pattern)
-│   │   │   ├── exception/
-│   │   │   │   ├── InvalidBidException.java
-│   │   │   │   ├── AuctionNotFoundException.java
-│   │   │   │   └── InsufficientFundsException.java
-│   │   │   ├── models/
-│   │   │   │   ├── Entity.java        # Abstract base (equals/hashCode)
-│   │   │   │   ├── User.java          # Abstract
-│   │   │   │   ├── Bidder.java        ─┐
-│   │   │   │   ├── Seller.java         │ Kế thừa User
-│   │   │   │   ├── Admin.java         ─┘
-│   │   │   │   ├── Item.java          # Abstract
-│   │   │   │   ├── Electronics.java   ─┐
-│   │   │   │   ├── Art.java            │ Kế thừa Item
-│   │   │   │   ├── Vehicle.java        │
-│   │   │   │   ├── Fashion.java        │
-│   │   │   │   └── Furniture.java     ─┘
-│   │   │   │   ├── Wallet.java        # Freeze/Release cơ chế
-│   │   │   │   └── UserManager.java   # Session người dùng hiện tại
-│   │   │   ├── pattern/
-│   │   │   │   └── ItemFactory.java   # Factory Method Pattern ✨
-│   │   │   └── util/
-│   │   │       └── SceneUtil.java
+│   ├── main/
+│   │   ├── java/com/auction/
+│   │   │   ├── client/                        # Phía Client (JavaFX)
+│   │   │   │   ├── AuctionFxApp.java           # Entry point client
+│   │   │   │   ├── controller/                 # FXML Controllers
+│   │   │   │   │   ├── LoginController.java
+│   │   │   │   │   ├── RegisterController.java
+│   │   │   │   │   ├── MainAuctionController.java
+│   │   │   │   │   ├── AuctionRoomController.java
+│   │   │   │   │   ├── CreateAuctionController.java
+│   │   │   │   │   ├── ProfileController.java      # Hồ sơ & Ví
+│   │   │   │   │   ├── SellerProductsController.java
+│   │   │   │   │   ├── NotificationController.java
+│   │   │   │   │   ├── ActivityLogController.java
+│   │   │   │   │   └── AdminDashboardController.java
+│   │   │   │   ├── service/
+│   │   │   │   │   └── NetworkClient.java          # Kết nối TCP, Observer pattern
+│   │   │   │   └── viewmodel/
+│   │   │   │       └── AuctionRow.java
+│   │   │   │
+│   │   │   ├── server/                        # Phía Server
+│   │   │   │   ├── network/
+│   │   │   │   │   ├── AuctionServer.java      # ThreadPool + broadcast
+│   │   │   │   │   └── ClientHandler.java      # Router lệnh
+│   │   │   │   ├── dao/
+│   │   │   │   │   ├── UserDAO.java
+│   │   │   │   │   ├── AuctionDAO.java
+│   │   │   │   │   └── ItemDAO.java
+│   │   │   │   └── util/
+│   │   │   │       └── DatabaseUtil.java       # HikariCP Singleton
+│   │   │   │
+│   │   │   ├── common/                        # Dùng chung Client + Server
+│   │   │   │   ├── models/                    # User, Item và các lớp con
+│   │   │   │   ├── dto/
+│   │   │   │   │   └── BidResult.java
+│   │   │   │   ├── exception/                 # Custom exceptions
+│   │   │   │   ├── pattern/
+│   │   │   │   │   └── ItemFactory.java       # Factory Method Pattern
+│   │   │   │   └── util/
+│   │   │   │
+│   │   │   └── domain/                        # Nghiệp vụ đấu giá
+│   │   │       ├── AuctionSession.java         # Core logic (synchronized)
+│   │   │       ├── AuctionManager.java         # Singleton
+│   │   │       ├── AuctionStatus.java          # Enum trạng thái
+│   │   │       └── BidTransaction.java         # Immutable value object
 │   │   │
-│   │   ├── domain/                    # Nghiệp vụ thuần túy (không phụ thuộc DB)
-│   │   │   ├── AuctionSession.java    # Core — synchronized processBid()
-│   │   │   ├── AuctionManager.java    # Singleton — wallet + DAO
-│   │   │   ├── AuctionStatus.java     # Enum với helper methods
-│   │   │   └── BidTransaction.java    # Immutable value object
-│   │   │
-│   │   ├── server/
-│   │   │   ├── network/
-│   │   │   │   ├── AuctionServer.java # ThreadPool + broadcast
-│   │   │   │   └── ClientHandler.java # Router lệnh + BCrypt login
-│   │   │   ├── dao/
-│   │   │   │   ├── UserDAO.java       # frozen_amount + try-with-resources
-│   │   │   │   ├── AuctionDAO.java    # JOIN với items
-│   │   │   │   └── ItemDAO.java       # Dùng ItemFactory
-│   │   │   └── util/
-│   │   │       └── DatabaseUtil.java  # HikariCP Singleton ✨
-│   │   │
-│   │   └── client/
-│   │       ├── AuctionFxApp.java
-│   │       ├── service/
-│   │       │   └── NetworkClient.java # Observer + synchronized
-│   │       ├── controller/
-│   │       │   ├── LoginController.java
-│   │       │   ├── MainAuctionController.java  # LIST_DETAIL (1 call) ✨
-│   │       │   ├── AuctionRoomController.java  # Realtime + LineChart
-│   │       │   └── CreateAuctionController.java
-│   │       └── viewmodel/
-│   │           └── AuctionRow.java
+│   │   └── resources/
+│   │       ├── config/
+│   │       │   ├── application.properties      # Cấu hình DB (gitignore)
+│   │       │   └── schema.sql
+│   │       └── fxml/                           # Giao diện JavaFX
 │   │
-│   ├── main/resources/
-│   │   ├── config/
-│   │   │   ├── application.properties  # (gitignore — không commit)
-│   │   │   └── schema.sql
-│   │   └── fxml/
-│   │       ├── Login.fxml
-│   │       ├── MainAuction.fxml
-│   │       ├── AuctionRoom.fxml
-│   │       └── CreateAuction.fxml
-│   │
-│   └── test/java/com/auction/
-│       ├── domain/
-│       │   ├── AuctionSessionTest.java  # 8 tests, không cần DB ✨
-│       │   └── AuctionManagerTest.java  # 9 tests
-│       └── common/models/
-│           └── WalletTest.java          # 14 tests, edge cases đầy đủ
+│   └── test/java/com/auction/                 # JUnit 5 Tests
 │
 ├── .github/workflows/
-│   └── ci.yml                          # GitHub Secrets (không hardcode pwd) ✨
-├── pom.xml                             # HikariCP + BCrypt + JUnit 5
+│   └── ci.yml                                 # GitHub Actions CI/CD
+├── pom.xml
 └── README.md
 ```
 
 ---
 
-## Phân công nhiệm vụ
+## Hướng dẫn chạy
 
-| Thành viên | Phụ trách | File chính |
-|------------|-----------|------------|
-| **Triệu Quốc Huân** | User System, Login/Register, GUI Login | `User`, `Bidder`, `Seller`, `Admin`, `LoginController`, `UserDAO` |
-| **Đặng Gia Khánh** | Item System, Factory Pattern, Seller GUI | `Item`, `Electronics`, `Art`, `Vehicle`, `ItemFactory`, `ItemDAO`, `CreateAuctionController` |
-| **Trần Mạnh Đức** | Auction Engine, Anti-sniping, Concurrency | `AuctionSession`, `AuctionStatus`, `BidTransaction`, `AuctionManager`, `AuctionDAO` |
-| **Tống Trung Kiên** | Server, Network, LineChart, Auto-bid, CI/CD | `AuctionServer`, `ClientHandler`, `NetworkClient`, `DatabaseUtil`, `AuctionRoomController`, CI/CD |
+### Bước 1 — Clone dự án
+
+```bash
+git clone https://github.com/YOUR_ORG/BaiTapLonLTNC.git
+cd BaiTapLonLTNC
+```
+
+### Bước 2 — Cấu hình cơ sở dữ liệu
+
+Tạo file `src/main/resources/config/application.properties`:
+
+```properties
+db.url=jdbc:mysql://localhost:3306/auction_system?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+db.username=root
+db.password=YOUR_MYSQL_PASSWORD
+```
+
+> ⚠️ File này đã được thêm vào `.gitignore`. **Không commit mật khẩu lên GitHub.**
+
+### Bước 3 — Thiết lập Database (MySQL Workbench)
+
+Nhóm sử dụng **MySQL Workbench** để khởi tạo schema. Thực hiện theo các bước sau:
+
+1. Mở **MySQL Workbench** và kết nối vào MySQL Server local
+2. Mở tab **Query** (File → New Query Tab hoặc `Ctrl+T`)
+3. Dán toàn bộ đoạn SQL bên dưới vào editor rồi nhấn **Execute** (⚡ hoặc `Ctrl+Shift+Enter`)
+
+```sql
+DROP DATABASE IF EXISTS auction_system;
+CREATE DATABASE auction_system;
+USE auction_system;
+
+CREATE TABLE users (
+    id            VARCHAR(50)  PRIMARY KEY,
+    username      VARCHAR(50)  NOT NULL UNIQUE,
+    password      VARCHAR(255) NOT NULL,
+    full_name     VARCHAR(100) NOT NULL,
+    email         VARCHAR(100) NOT NULL UNIQUE,
+    role          VARCHAR(20)  NOT NULL,
+    balance       DOUBLE       DEFAULT 0,
+    frozen_amount DOUBLE       DEFAULT 0
+);
+
+CREATE TABLE items (
+    id          VARCHAR(50)  PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL,
+    description TEXT,
+    init_price  DOUBLE       NOT NULL,
+    category    VARCHAR(50)  NOT NULL
+);
+
+CREATE TABLE auction_sessions (
+    auction_id          VARCHAR(50) PRIMARY KEY,
+    item_id             VARCHAR(50) NOT NULL,
+    seller_id           VARCHAR(50) NOT NULL,
+    start_time          DATETIME    NOT NULL,
+    end_time            DATETIME    NOT NULL,
+    status              VARCHAR(20) NOT NULL,
+    winner_id           VARCHAR(50),
+    current_highest_bid DOUBLE      DEFAULT 0
+);
+
+CREATE TABLE bid_transactions (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    auction_id  VARCHAR(50) NOT NULL,
+    bidder_id   VARCHAR(50) NOT NULL,
+    bid_amount  DOUBLE      NOT NULL,
+    bid_time    DATETIME    NOT NULL
+);
+```
+
+> ✅ Sau khi chạy thành công, database `auction_system` và 4 bảng sẽ được tạo tự động.  
+> Ngoài ra, có thể chạy lệnh trên qua MySQL CLI: `mysql -u root -p < schema.sql`
+
+### Bước 4 — Build dự án
+
+
+
+```bash
+mvn clean compile
+```
+
+### Bước 5 — Chạy Server
+
+Mở một terminal và chạy:
+
+```bash
+# Linux / macOS
+mvn exec:java -Dexec.mainClass="com.auction.server.network.AuctionServer"
+
+# Windows (Command Prompt)
+mvn exec:java -Dexec.mainClass="com.auction.server.network.AuctionServer"
+
+# Windows (PowerShell)
+mvn exec:java "-Dexec.mainClass=com.auction.server.network.AuctionServer"
+```
+
+Server sẽ tự động khởi tạo database, tạo bảng và lắng nghe ở cổng **9999**.
+
+> ✅ Chờ đến khi thấy thông báo `Server started on port 9999` trước khi chạy Client.
+
+### Bước 6 — Chạy Client
+
+Mở **terminal mới** (giữ nguyên terminal Server) và chạy:
+
+```bash
+# Linux / macOS / Windows (tất cả đều dùng lệnh này)
+mvn javafx:run
+```
+
+Có thể mở nhiều cửa sổ Client cùng lúc bằng cách chạy lại lệnh trên ở các terminal khác nhau.
+
+### Bước 7 — Chạy Tests (tùy chọn)
+
+```bash
+mvn test
+```
 
 ---
 
-## Chấm điểm tự đánh giá
+## Chức năng đã hoàn thành
 
-| Tiêu chí | Điểm tối đa | Tự chấm | Lý do |
-|----------|-------------|---------|-------|
-| Thiết kế lớp & cây kế thừa | 0.5 | **0.5** | Entity→User/Item, equals/hashCode, abstract showDetail |
-| Nguyên tắc OOP | 1.0 | **1.0** | Đầy đủ Encapsulation, Inheritance, Polymorphism, Abstraction |
-| Design Patterns | 1.0 | **1.0** | Singleton, Factory Method, Observer, Command (BidResult) |
-| Quản lý user/sản phẩm | 1.0 | **1.0** | Login BCrypt, Register, phân quyền, CRUD item |
-| Chức năng đấu giá | 1.0 | **0.9** | Bid hợp lệ, wallet freeze/release, status transitions |
-| Xử lý lỗi & ngoại lệ | 1.0 | **0.9** | Custom exceptions, try-with-resources, validation |
-| Concurrent bidding | 1.0 | **0.9** | synchronized + HikariCP pool, wallet persisted |
-| Realtime update | 0.5 | **0.5** | broadcast + Observer, daemon thread, no polling |
-| Kiến trúc Client–Server | 0.5 | **0.5** | Tầng rõ ràng, domain không phụ thuộc server |
-| MVC | 0.5 | **0.5** | FXML+Controller client; Controller→DAO server |
-| Maven + Code quality | 0.5 | **0.5** | pom.xml, Javadoc, DRY, naming chuẩn |
-| Unit Test | 0.5 | **0.5** | 31 tests, không cần DB, edge cases |
-| CI/CD | 0.5 | **0.5** | GitHub Actions + Secrets + artifact upload |
-| **Auto-bidding** (bonus) | 0.5 | **0.4** | maxBid + increment tuỳ chỉnh, kích hoạt tự động |
-| **Anti-sniping** (bonus) | 0.5 | **0.5** | EXTENDED status, 30s threshold, 60s extension |
-| **Bid History Chart** (bonus) | 0.5 | **0.5** | LineChart realtime, cập nhật mỗi bid |
-| **Tổng** | **10 + 1.5** | **~10.2** | |
+### Chức năng bắt buộc ✅
+
+| Chức năng | Trạng thái | Ghi chú |
+|-----------|:----------:|---------|
+| Đăng ký tài khoản | ✅ | Kiểm tra trùng username/email |
+| Đăng nhập / Đăng xuất | ✅ | BCrypt password hashing |
+| Phân quyền Bidder / Seller / Admin | ✅ | Giao diện thay đổi theo vai trò |
+| Thêm & xem sản phẩm | ✅ | Seller tạo item, hỗ trợ nhiều danh mục |
+| Tạo phiên đấu giá | ✅ | Giá khởi điểm, thời gian, mô tả |
+| Đặt giá (bid) realtime | ✅ | Kiểm tra hợp lệ, cập nhật winner ngay |
+| Tự động đóng phiên hết giờ | ✅ | ScheduledExecutorService |
+| Xem danh sách phiên đang mở | ✅ | Lọc, cập nhật realtime |
+| Xử lý ngoại lệ | ✅ | Custom exceptions, try-with-resources |
+| Giao diện JavaFX + FXML | ✅ | Nhiều màn hình, điều hướng mượt |
+| Kiến trúc Client–Server TCP | ✅ | ThreadPool 50 threads, broadcast |
+| Lưu trữ MySQL + HikariCP | ✅ | Connection pool an toàn với đa luồng |
+| Unit Test JUnit 5 | ✅ | 31 test cases, không phụ thuộc DB |
+
+### Chức năng nâng cao ✅
+
+| Chức năng | Trạng thái | Chi tiết |
+|-----------|:----------:|---------|
+| **Hồ sơ người dùng (User Profile)** | ✅ | Xem thông tin cá nhân, avatar, vai trò |
+| **Ví điện tử (Wallet)** | ✅ | Số dư, số tiền đang tạm khóa, nạp tiền |
+| **Freeze / Release tiền** | ✅ | Tạm khóa khi đặt cọc, hoàn tiền khi bị vượt |
+| **Lịch sử đặt giá của tôi** | ✅ | Bảng theo dõi các lần bid và kết quả |
+| **Biểu đồ giá realtime** | ✅ | LineChart cập nhật sau mỗi bid |
+| **Anti-sniping** | ✅ | Bid trong 30s cuối → gia hạn thêm 60s |
+| **Thông báo sự kiện** | ✅ | Nhận thông báo khi bị vượt giá, thắng phiên |
+| **Nhật ký hoạt động** | ✅ | Ghi lại lịch sử hành động của người dùng |
+| **Dashboard Admin** | ✅ | Thống kê, quản lý người dùng và phiên đấu |
+| **Sản phẩm của Seller** | ✅ | Seller xem và quản lý sản phẩm đã đăng |
+| **Đặt giá tự động (Auto-bid)** | ✅ | Cài maxBid + step, tự động đặt khi bị vượt |
+| **Broadcast không polling** | ✅ | Observer pattern, cập nhật đẩy từ server |
 
 ---
 
-## Công nghệ sử dụng
+## Báo cáo & Demo
 
-| Công nghệ | Phiên bản | Mục đích |
-|-----------|-----------|---------|
-| Java | 17 | Ngôn ngữ chính, text blocks, pattern matching |
-| JavaFX | 21 | GUI + FXML + LineChart |
-| MySQL | 8.0 | Database lưu trữ |
-| HikariCP | 5.1.0 | Connection Pool thread-safe |
-| BCrypt | 0.10.2 | Mã hóa mật khẩu |
-| JUnit 5 | 5.11.4 | Unit testing |
-| GitHub Actions | — | CI/CD tự động |
-| Maven | 3.8+ | Build tool |
+| Tài nguyên | Liên kết |
+|------------|----------|
+| 📄 Báo cáo PDF | [Xem báo cáo](https://drive.google.com/file/d/10uW3nB_3mwFE6k6cLPAVbH6j8IIzZ6H5/view?usp=sharing) |
+| 🎥 Video demo | [Xem video](https://drive.google.com/file/d/1SyozoCyFZr-OsIggEwWsHUvz7D3AwrHn/view?usp=sharing) |
+
