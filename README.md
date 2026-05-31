@@ -3,7 +3,7 @@
 > **Bài tập lớn — Lập trình nâng cao**  
 > Trường Đại học Công nghệ — ĐHQGHN
 
-[![CI](https://github.com/YOUR_ORG/BaiTapLonLTNC/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_ORG/BaiTapLonLTNC/actions/workflows/ci.yml)
+[![CI](https://github.com/duc019lcu/BaiTapLonLTNC/actions/workflows/tên_file_của_bạn.yml/badge.svg)](https://github.com/duc019lcu/BaiTapLonLTNC/actions)
 [![Java](https://img.shields.io/badge/Java-17-orange?logo=openjdk)](https://adoptium.net/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-21-blue)](https://openjfx.io/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0-blue?logo=mysql)](https://www.mysql.com/)
