@@ -282,8 +282,6 @@ public class NotificationService {
         // 1. Ghi vào DB
         try {
             notificationDAO.save(userId, type, content, auctionId);
-            System.out.println("[NOTI-DEBUG] Saved notification for userId=" + userId
-                    + " type=" + type + " content=" + content);
         } catch (Exception e) {
             System.err.println("[NOTI] Lỗi lưu DB: " + e.getMessage());
         }
