@@ -303,7 +303,6 @@ mvn test
 
 | Tài nguyên | Liên kết |
 |------------|----------|
-| 📄 Báo cáo PDF | [Xem báo cáo](https://drive.google.com/your-report-link) |
-| 🎥 Video demo | [Xem video](https://drive.google.com/your-video-link) |
+| 📄 Báo cáo PDF | [Xem báo cáo](https://drive.google.com/file/d/10uW3nB_3mwFE6k6cLPAVbH6j8IIzZ6H5/view?usp=sharing) |
+| 🎥 Video demo | [Xem video](https://drive.google.com/file/d/1SyozoCyFZr-OsIggEwWsHUvz7D3AwrHn/view?usp=sharing) |
 
-> 📝 **Lưu ý:** Thay các liên kết trên bằng link thực tế của nhóm trước khi nộp bài.
