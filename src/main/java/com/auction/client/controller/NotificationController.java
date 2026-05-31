@@ -18,29 +18,34 @@ import java.time.format.DateTimeFormatter;
 /**
  * Controller cho panel Notification (hiển thị trong sidebar/overlay).
  *
- * <p>Nhúng vào MainAuction.fxml và AdminDashboard.fxml qua fx:include.</p>
+ * <p>
+ * Nhúng vào MainAuction.fxml và AdminDashboard.fxml qua fx:include.
+ * </p>
  *
- * <p>Luồng:
+ * <p>
+ * Luồng:
  * <ol>
- *   <li>{@link #initialize()} — tải danh sách từ DB qua GET_NOTIFICATIONS.</li>
- *   <li>{@link #onRealtimeNotification(String)} — nhận push từ NetworkClient
- *       (được gọi từ MainAuctionController sau khi set notificationListener).</li>
- *   <li>{@link #handleMarkAllRead()} — đánh dấu đã đọc + cập nhật badge.</li>
+ * <li>{@link #initialize()} — tải danh sách từ DB qua GET_NOTIFICATIONS.</li>
+ * <li>{@link #onRealtimeNotification(String)} — nhận push từ NetworkClient
+ * (được gọi từ MainAuctionController sau khi set notificationListener).</li>
+ * <li>{@link #handleMarkAllRead()} — đánh dấu đã đọc + cập nhật badge.</li>
  * </ol>
  * </p>
  */
 public class NotificationController {
 
     // FXML — panel chứa danh sách
-    @FXML private Label              lblBadge;       // Badge số chưa đọc (trên bell icon)
-    @FXML private Label              lblUnreadCount; // Label "X chưa đọc" trong panel
-    @FXML private ListView<String[]> listNotifications;
+    @FXML
+    private Label lblBadge; // Badge số chưa đọc (trên bell icon)
+    @FXML
+    private Label lblUnreadCount; // Label "X chưa đọc" trong panel
+    @FXML
+    private ListView<String[]> listNotifications;
 
-    private final ObservableList<String[]> notiData =
-            FXCollections.observableArrayList();
+    private final ObservableList<String[]> notiData = FXCollections.observableArrayList();
 
     private String userId;
-    private int    unreadCount = 0;
+    private int unreadCount = 0;
 
     // -------------------------------------------------------------------------
     // Khởi tạo
@@ -48,13 +53,18 @@ public class NotificationController {
     @FXML
     public void initialize() {
         var user = UserManager.getInstance().getCurrentUser();
-        if (user == null) return;
+        if (user == null)
+            return;
         userId = user.getId();
 
         listNotifications.setItems(notiData);
         listNotifications.setCellFactory(lv -> new NotificationCell());
 
         loadNotificationsAsync();
+        System.out.println("[NOTI-CLIENT] initialize() called, userId="
+                + (UserManager.getInstance().getCurrentUser() != null
+                        ? UserManager.getInstance().getCurrentUser().getId()
+                        : "null"));
     }
 
     // -------------------------------------------------------------------------
@@ -81,16 +91,18 @@ public class NotificationController {
     public void onRealtimeNotification(String message) {
         // Format: NOTIFICATION|type|content|auctionId
         String[] parts = message.split("\\|", 4);
-        if (parts.length < 3) return;
+        if (parts.length < 3)
+            return;
 
-        String type      = parts[1];
-        String content   = parts[2];
+        String type = parts[1];
+        String content = parts[2];
         String auctionId = parts.length > 3 ? parts[3] : "";
-        String now       = LocalDateTime.now()
+        String now = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("HH:mm dd/MM"));
 
-        // [id="-1" để phân biệt chưa lưu từ DB (server đã lưu DB rồi, ở đây chỉ hiển thị)]
-        String[] row = {"-1", type, content, auctionId, "0", now};
+        // [id="-1" để phân biệt chưa lưu từ DB (server đã lưu DB rồi, ở đây chỉ hiển
+        // thị)]
+        String[] row = { "-1", type, content, auctionId, "0", now };
 
         Platform.runLater(() -> {
             notiData.add(0, row); // Thêm vào đầu danh sách
@@ -134,14 +146,17 @@ public class NotificationController {
             updateBadge();
             return;
         }
-        if (!response.startsWith("NOTIFICATIONS")) return;
+        if (!response.startsWith("NOTIFICATIONS"))
+            return;
 
         String[] entries = response.split("\\|");
         for (int i = 1; i < entries.length; i++) {
             String[] cols = entries[i].split(";", 6);
-            if (cols.length < 6) continue;
+            if (cols.length < 6)
+                continue;
             notiData.add(cols);
-            if ("0".equals(cols[4])) unreadCount++;
+            if ("0".equals(cols[4]))
+                unreadCount++;
         }
         updateBadge();
     }
@@ -160,11 +175,14 @@ public class NotificationController {
         }
         if (lblUnreadCount != null) {
             lblUnreadCount.setText(unreadCount > 0
-                    ? unreadCount + " chưa đọc" : "Tất cả đã đọc");
+                    ? unreadCount + " chưa đọc"
+                    : "Tất cả đã đọc");
         }
     }
 
-    /** Getter cho badge count — dùng bởi MainAuctionController để cập nhật sidebar. */
+    /**
+     * Getter cho badge count — dùng bởi MainAuctionController để cập nhật sidebar.
+     */
     public int getUnreadCount() {
         return unreadCount;
     }
@@ -190,26 +208,26 @@ public class NotificationController {
             }
 
             // item: [id, type, content, auctionId, isRead, createdAt]
-            String type    = item[1];
+            String type = item[1];
             String content = item[2];
-            String time    = item.length > 5 ? item[5] : "";
+            String time = item.length > 5 ? item[5] : "";
             boolean isRead = "1".equals(item[4]);
 
             // Icon theo loại
             String icon = switch (type) {
-                case "BID_OUTBID"      -> "📢";
-                case "AUCTION_WON"     -> "🏆";
-                case "AUCTION_LOST"    -> "😔";
-                case "AUCTION_ENDING"  -> "⏰";
-                case "ANTI_SNIPE"      -> "🔔";
-                case "BID_PLACED"      -> "💰";
+                case "BID_OUTBID" -> "📢";
+                case "AUCTION_WON" -> "🏆";
+                case "AUCTION_LOST" -> "😔";
+                case "AUCTION_ENDING" -> "⏰";
+                case "ANTI_SNIPE" -> "🔔";
+                case "BID_PLACED" -> "💰";
                 case "SESSION_CREATED" -> "✅";
-                case "SESSION_ENDED"   -> "🏁";
-                default                -> "📩";
+                case "SESSION_ENDED" -> "🏁";
+                default -> "📩";
             };
 
             // Layout
-            Label lblIcon    = new Label(icon);
+            Label lblIcon = new Label(icon);
             lblIcon.setStyle("-fx-font-size: 18px; -fx-min-width: 28px;");
 
             Label lblContent = new Label(content);
@@ -222,15 +240,15 @@ public class NotificationController {
             lblTime.setStyle("-fx-font-size: 10px; -fx-text-fill: #64748b;");
 
             VBox textBox = new VBox(2, lblContent, lblTime);
-            HBox cell    = new HBox(10, lblIcon, textBox);
+            HBox cell = new HBox(10, lblIcon, textBox);
             cell.setStyle("-fx-padding: 10 12 10 12;");
 
             // Màu nền: chưa đọc = nổi bật hơn
             String bg = isRead
                     ? "-fx-background-color: transparent;"
                     : "-fx-background-color: rgba(99,102,241,0.12); "
-                    + "-fx-border-color: transparent transparent #6366f1 transparent; "
-                    + "-fx-border-width: 0 0 1 0;";
+                            + "-fx-border-color: transparent transparent #6366f1 transparent; "
+                            + "-fx-border-width: 0 0 1 0;";
             cell.setStyle(cell.getStyle() + bg);
 
             setGraphic(cell);

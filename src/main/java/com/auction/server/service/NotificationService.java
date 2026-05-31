@@ -10,39 +10,43 @@ import java.util.List;
 /**
  * Service tập trung toàn bộ logic tạo và gửi notification.
  *
- * <p>Luồng hoạt động:
+ * <p>
+ * Luồng hoạt động:
  * <ol>
- *   <li>Ghi vào DB (NotificationDAO.save) để lưu lịch sử.</li>
- *   <li>Push realtime qua socket nếu user đang online
- *       ({@link AuctionServer#sendToUser}).</li>
+ * <li>Ghi vào DB (NotificationDAO.save) để lưu lịch sử.</li>
+ * <li>Push realtime qua socket nếu user đang online
+ * ({@link AuctionServer#sendToUser}).</li>
  * </ol>
  * </p>
  *
- * <p>Format tin nhắn socket:
+ * <p>
+ * Format tin nhắn socket:
  * {@code NOTIFICATION|type|content|auctionId}
  * </p>
  *
- * <p>Được gọi từ {@link com.auction.server.network.ClientHandler} sau mỗi sự kiện
- * quan trọng (bid mới, kết thúc phiên, anti-snipe, v.v.).</p>
+ * <p>
+ * Được gọi từ {@link com.auction.server.network.ClientHandler} sau mỗi sự kiện
+ * quan trọng (bid mới, kết thúc phiên, anti-snipe, v.v.).
+ * </p>
  */
 public class NotificationService {
 
     // Loại notification — dùng làm hằng số để tránh typo
-    public static final String TYPE_BID_OUTBID      = "BID_OUTBID";       // Bidder bị vượt mặt
-    public static final String TYPE_AUCTION_WON     = "AUCTION_WON";      // Bidder thắng cuộc
-    public static final String TYPE_AUCTION_LOST    = "AUCTION_LOST";     // Bidder thua cuộc
-    public static final String TYPE_AUCTION_ENDING  = "AUCTION_ENDING";   // Phiên sắp kết thúc (5 phút)
-    public static final String TYPE_ANTI_SNIPE      = "ANTI_SNIPE";       // Phiên bị gia hạn
-    public static final String TYPE_BID_PLACED      = "BID_PLACED";       // Seller: có người đặt giá
-    public static final String TYPE_SESSION_CREATED = "SESSION_CREATED";  // Seller: tạo phiên thành công
-    public static final String TYPE_SESSION_ENDED   = "SESSION_ENDED";    // Seller: phiên kết thúc
+    public static final String TYPE_BID_OUTBID = "BID_OUTBID"; // Bidder bị vượt mặt
+    public static final String TYPE_AUCTION_WON = "AUCTION_WON"; // Bidder thắng cuộc
+    public static final String TYPE_AUCTION_LOST = "AUCTION_LOST"; // Bidder thua cuộc
+    public static final String TYPE_AUCTION_ENDING = "AUCTION_ENDING"; // Phiên sắp kết thúc (5 phút)
+    public static final String TYPE_ANTI_SNIPE = "ANTI_SNIPE"; // Phiên bị gia hạn
+    public static final String TYPE_BID_PLACED = "BID_PLACED"; // Seller: có người đặt giá
+    public static final String TYPE_SESSION_CREATED = "SESSION_CREATED"; // Seller: tạo phiên thành công
+    public static final String TYPE_SESSION_ENDED = "SESSION_ENDED"; // Seller: phiên kết thúc
 
     private final NotificationDAO notificationDAO;
-    private final AuctionServer   server;
+    private final AuctionServer server;
 
     public NotificationService(AuctionServer server) {
         this.notificationDAO = new NotificationDAO();
-        this.server          = server;
+        this.server = server;
     }
 
     // =========================================================================
@@ -62,9 +66,9 @@ public class NotificationService {
      * @param newPrice       Giá mới (của người vừa vượt)
      */
     public void notifyBidderOutbid(String outbidBidderId,
-                                   String auctionId,
-                                   String itemName,
-                                   double newPrice) {
+            String auctionId,
+            String itemName,
+            double newPrice) {
         String content = String.format(
                 "Bạn vừa bị vượt mặt tại phiên \"%s\"! Giá mới: %,.0f ₫. Đặt giá ngay để giành lại!",
                 itemName, newPrice);
@@ -80,9 +84,9 @@ public class NotificationService {
      * @param finalPrice Giá thắng cuộc
      */
     public void notifyBidderWon(String winnerId,
-                                String auctionId,
-                                String itemName,
-                                double finalPrice) {
+            String auctionId,
+            String itemName,
+            double finalPrice) {
         String content = String.format(
                 "🎉 Chúc mừng! Bạn đã thắng phiên \"%s\" với giá %,.0f ₫!",
                 itemName, finalPrice);
@@ -98,9 +102,9 @@ public class NotificationService {
      * @param finalPrice Giá thắng cuộc (của người khác)
      */
     public void notifyBidderLost(String loserId,
-                                  String auctionId,
-                                  String itemName,
-                                  double finalPrice) {
+            String auctionId,
+            String itemName,
+            double finalPrice) {
         String content = String.format(
                 "Phiên \"%s\" đã kết thúc. Rất tiếc, bạn không thắng. Giá cuối: %,.0f ₫.",
                 itemName, finalPrice);
@@ -108,15 +112,16 @@ public class NotificationService {
     }
 
     /**
-     * Cảnh báo phiên sắp kết thúc (còn 5 phút) — gửi cho tất cả bidder đang tham gia.
+     * Cảnh báo phiên sắp kết thúc (còn 5 phút) — gửi cho tất cả bidder đang tham
+     * gia.
      *
      * @param bidderId  ID bidder
      * @param auctionId ID phiên
      * @param itemName  Tên sản phẩm
      */
     public void notifyAuctionEnding(String bidderId,
-                                     String auctionId,
-                                     String itemName) {
+            String auctionId,
+            String itemName) {
         String content = String.format(
                 "⏰ Phiên \"%s\" còn dưới 5 phút! Đừng bỏ lỡ cơ hội.",
                 itemName);
@@ -132,9 +137,9 @@ public class NotificationService {
      * @param newEndTime Thời gian kết thúc mới (ISO string)
      */
     public void notifyAntiSnipe(String bidderId,
-                                 String auctionId,
-                                 String itemName,
-                                 String newEndTime) {
+            String auctionId,
+            String itemName,
+            String newEndTime) {
         String content = String.format(
                 "🔔 Phiên \"%s\" được gia hạn do có bid mới vào phút cuối! Kết thúc lúc: %s.",
                 itemName, newEndTime);
@@ -153,8 +158,8 @@ public class NotificationService {
      * @param itemName  Tên sản phẩm
      */
     public void notifySellerSessionCreated(String sellerId,
-                                            String auctionId,
-                                            String itemName) {
+            String auctionId,
+            String itemName) {
         String content = String.format(
                 "✅ Phiên đấu giá \"%s\" (ID: %s) đã được tạo thành công!",
                 itemName, auctionId);
@@ -164,17 +169,17 @@ public class NotificationService {
     /**
      * Có người đặt giá mới vào phiên của Seller.
      *
-     * @param sellerId    ID seller
-     * @param auctionId   ID phiên
-     * @param itemName    Tên sản phẩm
-     * @param bidderName  Username của bidder
-     * @param newPrice    Giá vừa đặt
+     * @param sellerId   ID seller
+     * @param auctionId  ID phiên
+     * @param itemName   Tên sản phẩm
+     * @param bidderName Username của bidder
+     * @param newPrice   Giá vừa đặt
      */
     public void notifySellerNewBid(String sellerId,
-                                    String auctionId,
-                                    String itemName,
-                                    String bidderName,
-                                    double newPrice) {
+            String auctionId,
+            String itemName,
+            String bidderName,
+            double newPrice) {
         String content = String.format(
                 "💰 \"%s\" vừa đặt %,.0f ₫ cho phiên \"%s\".",
                 bidderName, newPrice, itemName);
@@ -189,8 +194,8 @@ public class NotificationService {
      * @param itemName  Tên sản phẩm
      */
     public void notifySellerAuctionEnding(String sellerId,
-                                           String auctionId,
-                                           String itemName) {
+            String auctionId,
+            String itemName) {
         String content = String.format(
                 "⏰ Phiên \"%s\" của bạn còn dưới 5 phút!",
                 itemName);
@@ -207,10 +212,10 @@ public class NotificationService {
      * @param finalPrice Giá cuối
      */
     public void notifySellerSessionEnded(String sellerId,
-                                          String auctionId,
-                                          String itemName,
-                                          String winnerName,
-                                          double finalPrice) {
+            String auctionId,
+            String itemName,
+            String winnerName,
+            double finalPrice) {
         String content;
         if (winnerName == null || winnerName.isBlank()) {
             content = String.format(
@@ -234,17 +239,18 @@ public class NotificationService {
     public String buildGetResponse(String userId) {
         try {
             List<String[]> list = notificationDAO.getByUser(userId);
-            if (list.isEmpty()) return "NOTIFICATIONS|trong";
+            if (list.isEmpty())
+                return "NOTIFICATIONS|trong";
             StringBuilder sb = new StringBuilder("NOTIFICATIONS");
             for (String[] row : list) {
                 // row: [id, type, content, auctionId, isRead, createdAt]
                 sb.append("|")
-                  .append(row[0]).append(";")
-                  .append(row[1]).append(";")
-                  .append(row[2].replace("|", "｜").replace(";", "；")).append(";")
-                  .append(row[3]).append(";")
-                  .append(row[4]).append(";")
-                  .append(row[5]);
+                        .append(row[0]).append(";")
+                        .append(row[1]).append(";")
+                        .append(row[2].replace("|", "｜").replace(";", "；")).append(";")
+                        .append(row[3]).append(";")
+                        .append(row[4]).append(";")
+                        .append(row[5]);
             }
             return sb.toString();
         } catch (Exception e) {
@@ -276,13 +282,15 @@ public class NotificationService {
         // 1. Ghi vào DB
         try {
             notificationDAO.save(userId, type, content, auctionId);
+            System.out.println("[NOTI-DEBUG] Saved notification for userId=" + userId
+                    + " type=" + type + " content=" + content);
         } catch (Exception e) {
             System.err.println("[NOTI] Lỗi lưu DB: " + e.getMessage());
         }
 
         // 2. Push realtime qua socket nếu user đang online
         // Format: NOTIFICATION|type|content|auctionId
-        String socketMsg = "NOTIFICATION|" + type + "|"
+        String socketMsg = "PUSH_NOTIFICATION|" + type + "|"
                 + content.replace("|", "｜") + "|"
                 + (auctionId != null ? auctionId : "");
         server.sendToUser(userId, socketMsg);
