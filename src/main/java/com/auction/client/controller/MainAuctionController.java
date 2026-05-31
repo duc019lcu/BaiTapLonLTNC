@@ -97,6 +97,9 @@ public class MainAuctionController {
     @FXML
     private Button btnActivityLog;
 
+    @FXML 
+    private Button btnForceClose;
+
     private final ObservableList<AuctionRow> auctionData = FXCollections.observableArrayList();
     private AuctionRow selectedAuction;
 
@@ -192,6 +195,8 @@ public class MainAuctionController {
         btnBanUser.setManaged(isAdmin);
         btnActivityLog.setVisible(isAdmin);
         btnActivityLog.setManaged(isAdmin);
+        btnForceClose.setVisible(isAdmin);
+        btnForceClose.setManaged(isAdmin);
     }
 
     private void updatePaginationLabel(int filteredSize) {
@@ -725,5 +730,37 @@ public class MainAuctionController {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    @FXML
+    void handleForceClose(ActionEvent event) {
+        if (selectedAuction == null) {
+            showAlert(Alert.AlertType.WARNING, "Chua chon phien",
+                    "Vui long chon mot phien de dong.");
+            return;
+        }
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "Dong phien [" + selectedAuction.getAuctionId() + "]?",
+                ButtonType.YES, ButtonType.NO);
+        confirm.setTitle("Xac nhan dong phien");
+        confirm.showAndWait().ifPresent(btn -> {
+            if (btn == ButtonType.YES) {
+                new Thread(() -> {
+                    String res = NetworkClient.getInstance()
+                            .sendRequest("CLOSE_SESSION|" + selectedAuction.getAuctionId());
+                    Platform.runLater(() -> {
+                        if (res != null && (res.startsWith("CLOSE_SESSION_SUCCESS")
+                                || res.startsWith("CAP_NHAT"))) {
+                            showAlert(Alert.AlertType.INFORMATION, "Thanh cong",
+                                    "Da dong phien: " + selectedAuction.getAuctionId());
+                            loadAuctionDataAsync();
+                        } else {
+                            showAlert(Alert.AlertType.ERROR, "Loi",
+                                    res != null ? res : "Khong the dong phien.");
+                        }
+                    });
+                }).start();
+            }
+        });
     }
 }

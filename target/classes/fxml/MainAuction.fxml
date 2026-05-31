@@ -31,11 +31,14 @@
 
                     <Region VBox.vgrow="ALWAYS" />
                     <Button fx:id="btnBanUser" text="🔨 Ban/Unban User"
-                            onAction="#handleBanUser"
-                            styleClass="sidebar-nav-item"/>
+                        onAction="#handleBanUser"
+                        styleClass="sidebar-nav-item" />
                     <Button fx:id="btnActivityLog" text="📋 Activity Log"
-                            onAction="#handleActivityLog"
-                            styleClass="sidebar-nav-item"/>
+                        onAction="#handleActivityLog"
+                        styleClass="sidebar-nav-item" />
+                    <Button fx:id="btnForceClose" text="⛔ Đóng phiên"
+                        onAction="#handleForceClose"
+                        styleClass="sidebar-nav-item" />
                 </VBox>
             </VBox>
         </left>
