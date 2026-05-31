@@ -479,6 +479,12 @@ public class AuctionRoomController {
     @FXML
     void handlePlaceBid(ActionEvent event) {
         if (secondsRemaining <= 0 || selectedAuctionId == null) return;
+        // Chá»‰ Bidder má»›i Ä‘Æ°á»£c Ä‘áº·t giÃ¡
+        String role = UserManager.getInstance().getCurrentUser().getRole();
+        if (!"BIDDER".equalsIgnoreCase(role)) {
+            showAlert("KhÃ´ng cÃ³ quyá»n", "Chi Bidder moi duoc dat gia!");
+            return;
+}
 
         double bidAmount;
         try {
@@ -750,6 +756,12 @@ import javafx.scene.control.DatePicker;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.TextField;
 
+import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.stage.FileChooser;
+import java.io.File;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -785,6 +797,14 @@ public class CreateAuctionController {
 
     @FXML
     private ComboBox<String> cbEndMinute;
+
+    @FXML 
+    private Label     lblImagePath;
+    
+    @FXML 
+    private ImageView imgPreview;
+    
+    private File selectedImageFile;
 
     @FXML
     public void initialize() {
@@ -918,6 +938,22 @@ public class CreateAuctionController {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    @FXML
+    void handleChooseImage(ActionEvent event) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Chon anh san pham");
+        fileChooser.getExtensionFilters().addAll(
+            new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg", "*.gif")
+        );
+        File file = fileChooser.showOpenDialog(txtItemName.getScene().getWindow());
+        if (file != null) {
+            selectedImageFile = file;
+            lblImagePath.setText(file.getName());
+            lblImagePath.setStyle("-fx-text-fill: #10b981; -fx-font-size: 13px;");
+            imgPreview.setImage(new Image(file.toURI().toString()));
+        }
     }
 }
 === C:\Users\Acer\OneDrive\Desktop\Updated - 1\src\main\java\com\auction\client\controller\LoginController.java ===
@@ -5810,7 +5846,20 @@ public class ClientHandler implements Runnable {
         } catch (NumberFormatException e) {
             return "LOI|So tien dat gia phai la so";
         }
-
+        // Kiá»ƒm tra vÃ­ Ä‘á»§ tiá»n
+        try {
+            User bidder = new UserDAO().findById(parts[2]);
+            if (bidder instanceof Bidder b) {
+                double available = b.getWallet().getBalance() - b.getWallet().getFrozenAmount();
+                if (available < amount) {
+                    return "TU_CHOI|Vi khong du tien. So du kha dung: "
+                            + String.format("%,.0f", available);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[SERVER] Loi kiem tra vi: " + e.getMessage());
+        }
+        
         boolean success = manager.placeBid(parts[1], parts[2], amount);
         AuctionSession session = manager.getSession(parts[1]);
         if (session == null) return "LOI|Khong tim thay phien dau gia: " + parts[1];
@@ -7001,8 +7050,12 @@ db.password=
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.image.ImageView?>
 
-<VBox alignment="CENTER" spacing="20.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.auction.client.controller.CreateAuctionController" prefWidth="700" prefHeight="650" stylesheets="@../styles/app.css" styleClass="page-bg">
+<VBox alignment="CENTER" spacing="20.0" xmlns="http://javafx.com/javafx/21"
+    xmlns:fx="http://javafx.com/fxml/1"
+    fx:controller="com.auction.client.controller.CreateAuctionController" prefWidth="700"
+    prefHeight="650" stylesheets="@../styles/app.css" styleClass="page-bg">
     <padding>
         <Insets bottom="30.0" left="50.0" right="50.0" top="30.0" />
     </padding>
@@ -7010,7 +7063,8 @@ db.password=
     <VBox spacing="18" prefWidth="620" styleClass="form-page">
         <children>
             <Label text="Táº O PHIÃŠN Äáº¤U GIÃ Má»šI" styleClass="form-title" />
-            <Label text="Nháº­p Ä‘á»§ thÃ´ng tin Ä‘áº¥u giÃ¡ Ä‘á»ƒ phiÃªn hoáº¡t Ä‘á»™ng mÆ°á»£t mÃ ." styleClass="form-subtitle" wrapText="true" />
+            <Label text="Nháº­p Ä‘á»§ thÃ´ng tin Ä‘áº¥u giÃ¡ Ä‘á»ƒ phiÃªn hoáº¡t Ä‘á»™ng mÆ°á»£t mÃ ."
+                styleClass="form-subtitle" wrapText="true" />
 
             <GridPane hgap="16" vgap="16" alignment="CENTER">
                 <columnConstraints>
@@ -7018,40 +7072,76 @@ db.password=
                     <ColumnConstraints minWidth="360" />
                 </columnConstraints>
 
-                <Label text="TÃªn sáº£n pháº©m (*):" GridPane.columnIndex="0" GridPane.rowIndex="0" styleClass="field-label" />
-                <TextField fx:id="txtItemName" promptText="VD: Macbook Pro M3" prefHeight="42" styleClass="text-input" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                <Label text="TÃªn sáº£n pháº©m (*):" GridPane.columnIndex="0" GridPane.rowIndex="0"
+                    styleClass="field-label" />
+                <TextField fx:id="txtItemName" promptText="VD: Macbook Pro M3" prefHeight="42"
+                    styleClass="text-input" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-                <Label text="Danh má»¥c:" GridPane.columnIndex="0" GridPane.rowIndex="1" styleClass="field-label" />
-                <ComboBox fx:id="cbCategory" prefHeight="42" styleClass="combo-box" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                <Label text="Danh má»¥c:" GridPane.columnIndex="0" GridPane.rowIndex="1"
+                    styleClass="field-label" />
+                <ComboBox fx:id="cbCategory" prefHeight="42" styleClass="combo-box"
+                    GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
-                <Label text="GiÃ¡ khá»Ÿi Ä‘iá»ƒm (*):" GridPane.columnIndex="0" GridPane.rowIndex="2" styleClass="field-label" />
-                <TextField fx:id="txtStartPrice" promptText="Nháº­p sá»‘ tiá»n (VNÄ)" prefHeight="42" styleClass="text-input" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                <Label text="GiÃ¡ khá»Ÿi Ä‘iá»ƒm (*):" GridPane.columnIndex="0" GridPane.rowIndex="2"
+                    styleClass="field-label" />
+                <TextField fx:id="txtStartPrice" promptText="Nháº­p sá»‘ tiá»n (VNÄ)" prefHeight="42"
+                    styleClass="text-input" GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
-                <Label text="Báº¯t Ä‘áº§u (*):" GridPane.columnIndex="0" GridPane.rowIndex="3" styleClass="field-label" />
-                <HBox spacing="8" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="3">
-                    <DatePicker fx:id="dpStartDate" prefHeight="42" prefWidth="150" promptText="Chá»n ngÃ y" styleClass="date-picker" />
-                    <ComboBox fx:id="cbStartHour" prefHeight="42" prefWidth="70" styleClass="combo-box" />
+                <Label text="Báº¯t Ä‘áº§u (*):" GridPane.columnIndex="0" GridPane.rowIndex="3"
+                    styleClass="field-label" />
+                <HBox spacing="8" alignment="CENTER_LEFT" GridPane.columnIndex="1"
+                    GridPane.rowIndex="3">
+                    <DatePicker fx:id="dpStartDate" prefHeight="42" prefWidth="150"
+                        promptText="Chá»n ngÃ y" styleClass="date-picker" />
+                    <ComboBox fx:id="cbStartHour" prefHeight="42" prefWidth="70"
+                        styleClass="combo-box" />
                     <Label text="h" style="-fx-text-fill: #94a3b8; -fx-font-weight: bold;" />
-                    <ComboBox fx:id="cbStartMinute" prefHeight="42" prefWidth="70" styleClass="combo-box" />
+                    <ComboBox fx:id="cbStartMinute" prefHeight="42" prefWidth="70"
+                        styleClass="combo-box" />
                     <Label text="m" style="-fx-text-fill: #94a3b8; -fx-font-weight: bold;" />
                 </HBox>
 
-                <Label text="Káº¿t thÃºc (*):" GridPane.columnIndex="0" GridPane.rowIndex="4" styleClass="field-label" />
-                <HBox spacing="8" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="4">
-                    <DatePicker fx:id="dpEndDate" prefHeight="42" prefWidth="150" promptText="Chá»n ngÃ y" styleClass="date-picker" />
-                    <ComboBox fx:id="cbEndHour" prefHeight="42" prefWidth="70" styleClass="combo-box" />
+                <Label text="Káº¿t thÃºc (*):" GridPane.columnIndex="0" GridPane.rowIndex="4"
+                    styleClass="field-label" />
+                <HBox spacing="8" alignment="CENTER_LEFT" GridPane.columnIndex="1"
+                    GridPane.rowIndex="4">
+                    <DatePicker fx:id="dpEndDate" prefHeight="42" prefWidth="150"
+                        promptText="Chá»n ngÃ y" styleClass="date-picker" />
+                    <ComboBox fx:id="cbEndHour" prefHeight="42" prefWidth="70"
+                        styleClass="combo-box" />
                     <Label text="h" style="-fx-text-fill: #94a3b8; -fx-font-weight: bold;" />
-                    <ComboBox fx:id="cbEndMinute" prefHeight="42" prefWidth="70" styleClass="combo-box" />
+                    <ComboBox fx:id="cbEndMinute" prefHeight="42" prefWidth="70"
+                        styleClass="combo-box" />
                     <Label text="m" style="-fx-text-fill: #94a3b8; -fx-font-weight: bold;" />
                 </HBox>
 
-                <Label text="MÃ´ táº£ chi tiáº¿t:" GridPane.columnIndex="0" GridPane.rowIndex="5" styleClass="field-label" />
-                <TextField fx:id="txtDescription" promptText="ThÃ´ng tin tÃ¬nh tráº¡ng sáº£n pháº©m..." prefHeight="42" styleClass="text-input" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+                <Label text="MÃ´ táº£ chi tiáº¿t:" GridPane.columnIndex="0" GridPane.rowIndex="5"
+                    styleClass="field-label" />
+                <TextField fx:id="txtDescription" promptText="ThÃ´ng tin tÃ¬nh tráº¡ng sáº£n pháº©m..."
+                    prefHeight="42" styleClass="text-input" GridPane.columnIndex="1"
+                    GridPane.rowIndex="5" />
+                <Label text="áº¢nh sáº£n pháº©m:" GridPane.columnIndex="0" GridPane.rowIndex="6"
+                    styleClass="field-label" />
+                <HBox spacing="10" alignment="CENTER_LEFT" GridPane.columnIndex="1"
+                    GridPane.rowIndex="6">
+                    <Button text="ðŸ“ Chá»n áº£nh" onAction="#handleChooseImage"
+                        prefHeight="42" styleClass="btn-secondary" />
+                    <Label fx:id="lblImagePath" text="ChÆ°a chá»n áº£nh"
+                        style="-fx-text-fill: #94a3b8; -fx-font-size: 13px;"
+                        HBox.hgrow="ALWAYS" wrapText="true" />
+                </HBox>
+
+                <Label GridPane.columnIndex="0" GridPane.rowIndex="7" />
+                <ImageView fx:id="imgPreview" fitWidth="200" fitHeight="150"
+                    preserveRatio="true" GridPane.columnIndex="1" GridPane.rowIndex="7">
+                </ImageView>
             </GridPane>
 
             <HBox alignment="CENTER" spacing="16" style="-fx-padding: 10 0 0 0;">
-                <Button text="Há»§y bá»" onAction="#handleCancel" prefWidth="140" prefHeight="44" styleClass="btn-secondary" />
-                <Button text="ÄÄƒng Sáº£n Pháº©m" onAction="#handleCreate" prefWidth="190" prefHeight="44" styleClass="btn-success" />
+                <Button text="Há»§y bá»" onAction="#handleCancel" prefWidth="140" prefHeight="44"
+                    styleClass="btn-secondary" />
+                <Button text="ÄÄƒng Sáº£n Pháº©m" onAction="#handleCreate" prefWidth="190"
+                    prefHeight="44" styleClass="btn-success" />
             </HBox>
         </children>
     </VBox>

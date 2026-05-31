@@ -111,6 +111,7 @@ public class ClientHandler implements Runnable {
             case "MARK_NOTIFICATIONS_READ" -> processMarkNotificationsRead(parts);
             case "BAN_USER"        -> processBanUser(parts);
             case "GET_ACTIVITY_LOG" -> processGetActivityLog(parts);
+            case "GET_ALL_USERS" -> processGetAllUsers();
             default                -> "LOI|Lenh khong hop le: " + command;
         };
     }
@@ -133,6 +134,18 @@ public class ClientHandler implements Runnable {
             // Xác thực BCrypt — tương thích ngược: nếu hash bắt đầu bằng '$2' thì là BCrypt
             boolean valid = isPasswordValid(parts[2], user.getPassword());
             if (!valid) return "LOGIN_FAILED|Sai tai khoan hoac mat khau";
+
+            // Kiểm tra tài khoản có bị ban không
+            try (var conn = com.auction.server.util.DatabaseUtil.getInstance().getConnection();
+                var stmt = conn.prepareStatement(
+                        "SELECT is_banned FROM users WHERE username = ?")) {
+                stmt.setString(1, parts[1]);
+                var rs = stmt.executeQuery();
+                if (rs.next() && rs.getInt("is_banned") == 1) {
+                    return "LOGIN_FAILED|Tai khoan da bi khoa. Lien he Admin de duoc ho tro.";
+                }
+            } catch (Exception ignored) {}
+
             this.loggedInUserId = user.getId();
             server.registerUser(user.getId(), this);
             return "LOGIN_SUCCESS|" + user.getRole() + "|" + user.getId()
@@ -706,4 +719,24 @@ public class ClientHandler implements Runnable {
             }
         } catch (Exception ignored) {}
     }
+    
+    private String processGetAllUsers() {
+    try {
+        String sql = "SELECT username, role, is_banned FROM users ORDER BY role, username";
+        StringBuilder sb = new StringBuilder("ALL_USERS");
+        try (var conn = com.auction.server.util.DatabaseUtil.getInstance().getConnection();
+             var stmt = conn.prepareStatement(sql);
+             var rs   = stmt.executeQuery()) {
+            while (rs.next()) {
+                sb.append("|")
+                  .append(rs.getString("username")).append(";")
+                  .append(rs.getString("role")).append(";")
+                  .append(rs.getInt("is_banned"));
+            }
+        }
+        return sb.length() == "ALL_USERS".length() ? "ALL_USERS|trong" : sb.toString();
+    } catch (Exception e) {
+        return "LOI|" + e.getMessage();
+    }
+}
 }

@@ -27,49 +27,75 @@ import java.time.LocalDateTime;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.TextInputDialog;
 /**
  * Controller màn hình danh sách phiên đấu giá.
  *
- * <p>Dùng lệnh <code>LIST_DETAIL</code> để lấy toàn bộ thông tin phiên
- * trong <strong>một lần gọi mạng duy nhất</strong>, thay vì N+1 calls như trước.</p>
+ * <p>
+ * Dùng lệnh <code>LIST_DETAIL</code> để lấy toàn bộ thông tin phiên
+ * trong <strong>một lần gọi mạng duy nhất</strong>, thay vì N+1 calls như
+ * trước.
+ * </p>
  *
- * <p>Đồng hồ đếm ngược trong bảng được cập nhật <strong>mỗi giây</strong>
- * qua một Timer daemon — không cần reload lại từ server.</p>
+ * <p>
+ * Đồng hồ đếm ngược trong bảng được cập nhật <strong>mỗi giây</strong>
+ * qua một Timer daemon — không cần reload lại từ server.
+ * </p>
  */
 public class MainAuctionController {
 
-    @FXML private Label               lblWelcome;
-    @FXML private TableView<AuctionRow> auctionTable;
-    @FXML private Button              btnCreateAuction;
-    @FXML private Button              btnMyProducts;
-    @FXML private Button              btnRefresh;
+    @FXML
+    private Label lblWelcome;
+    @FXML
+    private TableView<AuctionRow> auctionTable;
+    @FXML
+    private Button btnCreateAuction;
+    @FXML
+    private Button btnMyProducts;
+    @FXML
+    private Button btnRefresh;
 
     // Các trường FXML mới cho thống kê & tìm kiếm
-    @FXML private TextField           txtSearch;
-    @FXML private Label               lblLiveCount;
-    @FXML private Label               lblPaginationInfo;
+    @FXML
+    private TextField txtSearch;
+    @FXML
+    private Label lblLiveCount;
+    @FXML
+    private Label lblPaginationInfo;
 
     // Các cột TableView
-    @FXML private TableColumn<AuctionRow, Integer> colStt;
-    @FXML private TableColumn<AuctionRow, String>  colAuctionId;
-    @FXML private TableColumn<AuctionRow, String>  colItemName;
-    @FXML private TableColumn<AuctionRow, Double>  colCurrentPrice;
-    @FXML private TableColumn<AuctionRow, Integer> colParticipants;
-    @FXML private TableColumn<AuctionRow, String>  colStatus;
-    @FXML private TableColumn<AuctionRow, String>  colTimeRemaining;
+    @FXML
+    private TableColumn<AuctionRow, Integer> colStt;
+    @FXML
+    private TableColumn<AuctionRow, String> colAuctionId;
+    @FXML
+    private TableColumn<AuctionRow, String> colItemName;
+    @FXML
+    private TableColumn<AuctionRow, Double> colCurrentPrice;
+    @FXML
+    private TableColumn<AuctionRow, Integer> colParticipants;
+    @FXML
+    private TableColumn<AuctionRow, String> colStatus;
+    @FXML
+    private TableColumn<AuctionRow, String> colTimeRemaining;
 
-    @FXML private Button btnSellerCenter;
-    @FXML private Button btnDashboard;
-    @FXML private Button btnActiveAuctions;
+    @FXML
+    private Button btnSellerCenter;
+    @FXML
+    private Button btnDashboard;
+    @FXML
+    private Button btnActiveAuctions;
 
-    @FXML private Label                  lblBadge;
-    @FXML private NotificationController notificationPanelController;
-    @FXML private VBox                   notificationPopup;
+    @FXML
+    private Label lblBadge;
+    @FXML
+    private NotificationController notificationPanelController;
+    @FXML
+    private VBox notificationPopup;
 
-    @FXML private Button btnBanUser;
-    @FXML private Button btnActivityLog;
+    @FXML
+    private Button btnBanUser;
+    @FXML
+    private Button btnActivityLog;
 
     private final ObservableList<AuctionRow> auctionData = FXCollections.observableArrayList();
     private AuctionRow selectedAuction;
@@ -89,25 +115,23 @@ public class MainAuctionController {
                 boolean isSeller = "Seller".equalsIgnoreCase(currentUser.getClass().getSimpleName());
                 btnCreateAuction.setVisible(isSeller);
                 btnCreateAuction.setManaged(isSeller);
-            if (notificationPopup != null) {
-                notificationPopup.setVisible(false);
-                notificationPopup.setManaged(false);
-            }
+                if (notificationPopup != null) {
+                    notificationPopup.setVisible(false);
+                    notificationPopup.setManaged(false);
+                }
 
-            // 1. Ánh xạ các thuộc tính vào cột TableColumn
-            NetworkClient.getInstance().setNotificationListener(message ->
-                Platform.runLater(() -> {
+                // 1. Ánh xạ các thuộc tính vào cột TableColumn
+                NetworkClient.getInstance().setNotificationListener(message -> Platform.runLater(() -> {
                     if (notificationPanelController != null) {
                         notificationPanelController.onRealtimeNotification(message);
                         updateBellBadge(notificationPanelController.getUnreadCount());
                     }
-                })
-            );
-            if (notificationPopup != null) {
-                notificationPopup.setVisible(false);
-                notificationPopup.setManaged(false);
+                }));
+                if (notificationPopup != null) {
+                    notificationPopup.setVisible(false);
+                    notificationPopup.setManaged(false);
+                }
             }
-        }
 
             // 1. Ánh xạ các thuộc tính vào cột TableColumn
             colStt.setCellValueFactory(cellData -> cellData.getValue().sttProperty().asObject());
@@ -143,8 +167,7 @@ public class MainAuctionController {
             sortedData.comparatorProperty().bind(auctionTable.comparatorProperty());
             auctionTable.setItems(sortedData);
 
-            auctionTable.setOnMouseClicked(e ->
-                    selectedAuction = auctionTable.getSelectionModel().getSelectedItem());
+            auctionTable.setOnMouseClicked(e -> selectedAuction = auctionTable.getSelectionModel().getSelectedItem());
 
             loadAuctionDataAsync();
 
@@ -218,7 +241,8 @@ public class MainAuctionController {
                 imgPlaceholder.setPrefSize(28, 28);
                 imgPlaceholder.setMinSize(28, 28);
                 imgPlaceholder.setMaxSize(28, 28);
-                imgPlaceholder.setStyle("-fx-background-color: #1e293b; -fx-background-radius: 6; -fx-border-color: #334155; -fx-border-radius: 6;");
+                imgPlaceholder.setStyle(
+                        "-fx-background-color: #1e293b; -fx-background-radius: 6; -fx-border-color: #334155; -fx-border-radius: 6;");
                 lblIcon.setStyle("-fx-font-size: 14px;");
                 imgPlaceholder.getChildren().add(lblIcon);
                 lblName.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
@@ -312,12 +336,18 @@ public class MainAuctionController {
                     }
                     badge.setText("• " + display);
 
-                    if ("RUNNING".equalsIgnoreCase(item) || "EXTENDED".equalsIgnoreCase(item) || "ĐANG DIỄN RA".equalsIgnoreCase(item)) {
-                        badge.setStyle("-fx-background-color: rgba(16, 185, 129, 0.15); -fx-text-fill: #34d399; -fx-background-radius: 12; -fx-font-weight: bold; -fx-font-size: 11px;");
-                    } else if ("FINISHED".equalsIgnoreCase(item) || "SUCCESS".equalsIgnoreCase(item) || "FAILED".equalsIgnoreCase(item) || "CANCELED".equalsIgnoreCase(item) || "ĐÃ KẾT THÚC".equalsIgnoreCase(item) || "PAID".equalsIgnoreCase(item)) {
-                        badge.setStyle("-fx-background-color: rgba(239, 68, 68, 0.15); -fx-text-fill: #f87171; -fx-background-radius: 12; -fx-font-weight: bold; -fx-font-size: 11px;");
+                    if ("RUNNING".equalsIgnoreCase(item) || "EXTENDED".equalsIgnoreCase(item)
+                            || "ĐANG DIỄN RA".equalsIgnoreCase(item)) {
+                        badge.setStyle(
+                                "-fx-background-color: rgba(16, 185, 129, 0.15); -fx-text-fill: #34d399; -fx-background-radius: 12; -fx-font-weight: bold; -fx-font-size: 11px;");
+                    } else if ("FINISHED".equalsIgnoreCase(item) || "SUCCESS".equalsIgnoreCase(item)
+                            || "FAILED".equalsIgnoreCase(item) || "CANCELED".equalsIgnoreCase(item)
+                            || "ĐÃ KẾT THÚC".equalsIgnoreCase(item) || "PAID".equalsIgnoreCase(item)) {
+                        badge.setStyle(
+                                "-fx-background-color: rgba(239, 68, 68, 0.15); -fx-text-fill: #f87171; -fx-background-radius: 12; -fx-font-weight: bold; -fx-font-size: 11px;");
                     } else {
-                        badge.setStyle("-fx-background-color: rgba(59, 130, 246, 0.15); -fx-text-fill: #60a5fa; -fx-background-radius: 12; -fx-font-weight: bold; -fx-font-size: 11px;");
+                        badge.setStyle(
+                                "-fx-background-color: rgba(59, 130, 246, 0.15); -fx-text-fill: #60a5fa; -fx-background-radius: 12; -fx-font-weight: bold; -fx-font-size: 11px;");
                     }
                     setGraphic(badge);
                 }
@@ -334,9 +364,11 @@ public class MainAuctionController {
                 } else {
                     setText(item);
                     if ("Đã kết thúc".equals(item)) {
-                        setStyle("-fx-text-fill: #ef4444; -fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-font-size: 14px;");
+                        setStyle(
+                                "-fx-text-fill: #ef4444; -fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-font-size: 14px;");
                     } else {
-                        setStyle("-fx-text-fill: #f97316; -fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-font-size: 14px;");
+                        setStyle(
+                                "-fx-text-fill: #f97316; -fx-font-family: 'Courier New'; -fx-font-weight: bold; -fx-font-size: 14px;");
                     }
                 }
             }
@@ -353,9 +385,8 @@ public class MainAuctionController {
                 loadAuctionData();
             } catch (Exception e) {
                 System.err.println("[MainController] Lỗi tải dữ liệu: " + e.getMessage());
-                Platform.runLater(() ->
-                        showAlert(Alert.AlertType.WARNING, "Lỗi tải dữ liệu",
-                                "Không thể tải danh sách phiên: " + e.getMessage()));
+                Platform.runLater(() -> showAlert(Alert.AlertType.WARNING, "Lỗi tải dữ liệu",
+                        "Không thể tải danh sách phiên: " + e.getMessage()));
             }
         });
         loadThread.setDaemon(true);
@@ -363,18 +394,20 @@ public class MainAuctionController {
     }
 
     /**
-     * Tải danh sách phiên đấu giá từ server bằng <strong>một lần gọi duy nhất</strong> (LIST_DETAIL).
+     * Tải danh sách phiên đấu giá từ server bằng <strong>một lần gọi duy
+     * nhất</strong> (LIST_DETAIL).
      *
-     * <p>Format server trả về:
-     * {@code DANH_SACH_CHI_TIET|id:itemName:price:status:endTime|...}</p>
+     * <p>
+     * Format server trả về:
+     * {@code DANH_SACH_CHI_TIET|id:itemName:price:status:endTime|...}
+     * </p>
      */
     private void loadAuctionData() {
         String response = NetworkClient.getInstance().sendRequest("LIST_DETAIL");
 
         if (response == null || !response.startsWith("DANH_SACH_CHI_TIET")) {
-            Platform.runLater(() ->
-                    showAlert(Alert.AlertType.WARNING, "Không tải được dữ liệu",
-                            "Không thể lấy danh sách phiên từ máy chủ."));
+            Platform.runLater(() -> showAlert(Alert.AlertType.WARNING, "Không tải được dữ liệu",
+                    "Không thể lấy danh sách phiên từ máy chủ."));
             return;
         }
 
@@ -383,18 +416,20 @@ public class MainAuctionController {
         int stt = 1;
 
         for (int i = 1; i < entries.length; i++) {
-            if ("trong".equalsIgnoreCase(entries[i])) break;
+            if ("trong".equalsIgnoreCase(entries[i]))
+                break;
 
             // Format: id;itemName;price;status;startTime;endTime
             String[] parts = entries[i].split(";");
-            if (parts.length < 6) continue;
+            if (parts.length < 6)
+                continue;
 
-            String auctionId     = parts[0];
-            String itemName      = parts[1];
-            double currentPrice  = parseDouble(parts[2]);
-            String status        = parts[3];
-            String startTimeStr  = parts[4];
-            String endTimeStr    = parts[5];
+            String auctionId = parts[0];
+            String itemName = parts[1];
+            double currentPrice = parseDouble(parts[2]);
+            String status = parts[3];
+            String startTimeStr = parts[4];
+            String endTimeStr = parts[5];
             int participantCount = parts.length > 6 ? (int) parseDouble(parts[6]) : 0;
             String timeRemaining = calculateTimeRemaining(status, startTimeStr, endTimeStr);
 
@@ -406,11 +441,13 @@ public class MainAuctionController {
             auctionData.setAll(rows);
             lblLiveCount.setText(String.valueOf(rows.size()));
             updatePaginationLabel(rows.size());
-            startLiveCountdown();   // Khởi động timer đếm ngược realtime
+            startLiveCountdown(); // Khởi động timer đếm ngược realtime
             // Nếu đang filter thì áp lại filter sau khi load
-            if (isFilteringActive) filterActiveOnly();
+            if (isFilteringActive)
+                filterActiveOnly();
         });
     }
+
     private boolean isFilteringActive = false;
 
     private void filterActiveOnly() {
@@ -445,7 +482,8 @@ public class MainAuctionController {
                 Platform.runLater(() -> {
                     boolean allDone = true;
                     for (AuctionRow row : auctionData) {
-                        String display = calculateTimeRemaining(row.getStatus(), row.getStartTimeStr(), row.getEndTimeStr());
+                        String display = calculateTimeRemaining(row.getStatus(), row.getStartTimeStr(),
+                                row.getEndTimeStr());
                         row.timeRemainingProperty().set(display);
 
                         if (!"Đã kết thúc".equals(display)) {
@@ -467,26 +505,30 @@ public class MainAuctionController {
 
     @FXML
     void handleLogout(ActionEvent event) {
-        if (liveCountdownTimer != null) liveCountdownTimer.cancel();
+        if (liveCountdownTimer != null)
+            liveCountdownTimer.cancel();
         UserManager.getInstance().setCurrentUser(null);
         SceneUtil.changeScene(event, "Login.fxml", "Đăng nhập");
     }
-    
+
     @FXML
     void handleProfile(ActionEvent event) {
-        if (liveCountdownTimer != null) liveCountdownTimer.cancel();
+        if (liveCountdownTimer != null)
+            liveCountdownTimer.cancel();
         SceneUtil.changeScene(event, "Profile.fxml", "Hồ sơ cá nhân");
     }
 
     @FXML
     void handleCreateAuction(ActionEvent event) {
-        if (liveCountdownTimer != null) liveCountdownTimer.cancel();
+        if (liveCountdownTimer != null)
+            liveCountdownTimer.cancel();
         SceneUtil.changeScene(event, "CreateAuction.fxml", "Tạo phiên đấu giá mới");
     }
 
     @FXML
     void handleMyProducts(ActionEvent event) {
-        if (liveCountdownTimer != null) liveCountdownTimer.cancel();
+        if (liveCountdownTimer != null)
+            liveCountdownTimer.cancel();
         SceneUtil.changeScene(event, "SellerProducts.fxml", "Quản lý sản phẩm của tôi");
     }
 
@@ -498,12 +540,15 @@ public class MainAuctionController {
             return;
         }
 
-        if ("PENDING".equalsIgnoreCase(selectedAuction.getStatus()) || "CHỜ BẮT ĐẦU".equalsIgnoreCase(selectedAuction.getStatus())) {
-            showAlert(Alert.AlertType.WARNING, "Phiên chưa bắt đầu", "Phiên đấu giá chưa bắt đầu, xin vui lòng quay lại khi phiên đấu giá bắt đầu.");
+        if ("PENDING".equalsIgnoreCase(selectedAuction.getStatus())
+                || "CHỜ BẮT ĐẦU".equalsIgnoreCase(selectedAuction.getStatus())) {
+            showAlert(Alert.AlertType.WARNING, "Phiên chưa bắt đầu",
+                    "Phiên đấu giá chưa bắt đầu, xin vui lòng quay lại khi phiên đấu giá bắt đầu.");
             return;
         }
 
-        if (liveCountdownTimer != null) liveCountdownTimer.cancel();
+        if (liveCountdownTimer != null)
+            liveCountdownTimer.cancel();
         AuctionRoomController.setSelectedAuction(
                 selectedAuction.getAuctionId(), selectedAuction.getItemName());
         SceneUtil.changeScene(event, "AuctionRoom.fxml",
@@ -512,7 +557,8 @@ public class MainAuctionController {
 
     @FXML
     void handleRefresh(ActionEvent event) {
-        if (liveCountdownTimer != null) liveCountdownTimer.cancel();
+        if (liveCountdownTimer != null)
+            liveCountdownTimer.cancel();
         loadAuctionDataAsync();
     }
 
@@ -535,64 +581,95 @@ public class MainAuctionController {
         btnActiveAuctions.getStyleClass().add("active");
         btnDashboard.getStyleClass().remove("active");
     }
+
     @FXML
     void handleBanUser(ActionEvent event) {
-        // Dialog nhập username
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Ban / Unban User");
-        dialog.setHeaderText(null);
-        dialog.setContentText("Nhập username cần ban/unban:");
-        dialog.showAndWait().ifPresent(username -> {
-            if (username.isBlank()) return;
-
-            // Hỏi ban hay unban
-            Alert choice = new Alert(Alert.AlertType.CONFIRMATION);
-            choice.setTitle("Chọn hành động");
-            choice.setHeaderText("User: " + username);
-            ButtonType btnBan   = new ButtonType("🔨 Ban");
-            ButtonType btnUnban = new ButtonType("✅ Unban");
-            ButtonType btnCancel = new ButtonType("Hủy", ButtonBar.ButtonData.CANCEL_CLOSE);
-            choice.getButtonTypes().setAll(btnBan, btnUnban, btnCancel);
-            choice.showAndWait().ifPresent(btn -> {
-                if (btn == btnBan || btn == btnUnban) {
-                    boolean isBan = btn == btnBan;
-                    new Thread(() -> {
-                        String res = NetworkClient.getInstance()
-                                .sendRequest("BAN_USER|" + username + "|" + isBan);
-                        Platform.runLater(() -> {
-                            Alert result = new Alert(Alert.AlertType.INFORMATION);
-                            result.setHeaderText(null);
-                            if (res.startsWith("BAN_SUCCESS")) {
-                                result.setContentText("Da ban user: " + username);
-                            } else if (res.startsWith("UNBAN_SUCCESS")) {
-                                result.setContentText("Da unban user: " + username);
-                            } else {
-                                result.setContentText("That bai: " + res);
-                            }
-                            result.show();
-                        });
-                    }).start();
+        new Thread(() -> {
+            String res = NetworkClient.getInstance().sendRequest("GET_ALL_USERS");
+            Platform.runLater(() -> {
+                if (res == null || "ALL_USERS|trong".equals(res)) {
+                    showAlert(Alert.AlertType.WARNING, "Thong bao", "Khong co user nao.");
+                    return;
                 }
+                // Parse danh sach user
+                String[] entries = res.split("\\|");
+                java.util.List<String> userList = new java.util.ArrayList<>();
+                java.util.Map<String, String[]> userMap = new java.util.LinkedHashMap<>();
+                for (int i = 1; i < entries.length; i++) {
+                    String[] parts = entries[i].split(";");
+                    if (parts.length >= 3) {
+                        String display = parts[0] + " [" + parts[1] + "]"
+                                + ("1".equals(parts[2]) ? " 🔒BANNED" : "");
+                        userList.add(display);
+                        userMap.put(display, parts);
+                    }
+                }
+
+                // Dialog chọn user
+                javafx.scene.control.ChoiceDialog<String> dialog = new javafx.scene.control.ChoiceDialog<>(
+                        userList.get(0), userList);
+                dialog.setTitle("Ban / Unban User");
+                dialog.setHeaderText("Chon user can xu ly:");
+                dialog.setContentText("User:");
+                dialog.showAndWait().ifPresent(chosen -> {
+                    String[] parts = userMap.get(chosen);
+                    String username = parts[0];
+                    boolean isBanned = "1".equals(parts[2]);
+
+                    // Hỏi ban hay unban
+                    Alert choice = new Alert(Alert.AlertType.CONFIRMATION);
+                    choice.setTitle("Chon hanh dong");
+                    choice.setHeaderText("User: " + username);
+                    ButtonType btnBan = new ButtonType("Ban");
+                    ButtonType btnUnban = new ButtonType("Unban");
+                    ButtonType btnCancel = new ButtonType("Huy",
+                            ButtonBar.ButtonData.CANCEL_CLOSE);
+                    choice.getButtonTypes().setAll(
+                            isBanned ? btnUnban : btnBan,
+                            btnCancel);
+                    choice.showAndWait().ifPresent(btn -> {
+                        if (btn == btnBan || btn == btnUnban) {
+                            boolean doBan = btn == btnBan;
+                            new Thread(() -> {
+                                String r = NetworkClient.getInstance()
+                                        .sendRequest("BAN_USER|" + username + "|" + doBan);
+                                Platform.runLater(() -> {
+                                    Alert result = new Alert(Alert.AlertType.INFORMATION);
+                                    result.setHeaderText(null);
+                                    result.setContentText(r.startsWith("BAN_SUCCESS")
+                                            ? "Da ban: " + username
+                                            : r.startsWith("UNBAN_SUCCESS")
+                                                    ? "Da unban: " + username
+                                                    : "That bai: " + r);
+                                    result.show();
+                                });
+                            }).start();
+                        }
+                    });
+                });
             });
-        });
+        }).start();
     }
 
     @FXML
     void handleActivityLog(ActionEvent event) {
-        if (liveCountdownTimer != null) liveCountdownTimer.cancel();
+        if (liveCountdownTimer != null)
+            liveCountdownTimer.cancel();
         SceneUtil.changeScene(event, "ActivityLog.fxml", "Activity Log");
     }
 
     @FXML
     void handleToggleNotification(ActionEvent event) {
-        if (notificationPopup == null) return;
+        if (notificationPopup == null)
+            return;
         boolean showing = notificationPopup.isVisible();
         notificationPopup.setVisible(!showing);
         notificationPopup.setManaged(!showing);
     }
 
     private void updateBellBadge(int count) {
-        if (lblBadge == null) return;
+        if (lblBadge == null)
+            return;
         if (count > 0) {
             lblBadge.setText(count > 99 ? "99+" : String.valueOf(count));
             lblBadge.setVisible(true);
@@ -605,28 +682,35 @@ public class MainAuctionController {
     // -------------------------------------------------------------------------
 
     private double parseDouble(String value) {
-        try { return Double.parseDouble(value); }
-        catch (NumberFormatException e) { return 0.0; }
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
     }
 
     private String calculateTimeRemaining(String status, String startTimeStr, String endTimeStr) {
         if ("PENDING".equalsIgnoreCase(status) || "CHỜ BẮT ĐẦU".equalsIgnoreCase(status)) {
-            if (startTimeStr == null || startTimeStr.isBlank()) return "00:00:00";
+            if (startTimeStr == null || startTimeStr.isBlank())
+                return "00:00:00";
             try {
                 LocalDateTime startTime = LocalDateTime.parse(startTimeStr);
                 long seconds = Duration.between(LocalDateTime.now(), startTime).getSeconds();
-                if (seconds <= 0) return "00:00:00";
+                if (seconds <= 0)
+                    return "00:00:00";
                 return String.format("%02d:%02d:%02d",
                         seconds / 3600, (seconds % 3600) / 60, seconds % 60);
             } catch (Exception e) {
                 return "00:00:00";
             }
         } else {
-            if (endTimeStr == null || endTimeStr.isBlank()) return "00:00:00";
+            if (endTimeStr == null || endTimeStr.isBlank())
+                return "00:00:00";
             try {
                 LocalDateTime endTime = LocalDateTime.parse(endTimeStr);
                 long seconds = Duration.between(LocalDateTime.now(), endTime).getSeconds();
-                if (seconds <= 0) return "Đã kết thúc";
+                if (seconds <= 0)
+                    return "Đã kết thúc";
                 return String.format("%02d:%02d:%02d",
                         seconds / 3600, (seconds % 3600) / 60, seconds % 60);
             } catch (Exception e) {
